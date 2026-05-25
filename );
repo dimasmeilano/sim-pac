@@ -1,0 +1,73 @@
+[90m= [39m[34;4mApp\Models\SuratTemplate[39;24m {#8751
+    [34mid[39m: [35m5[39m,
+    [34mnama[39m: [32m"[39m[32mSurat Rekomendasi Pengesahan[39m[32m"[39m,
+    [34mkode[39m: [32m"[39m[32mSRP[39m[32m"[39m,
+    [34mkonten[39m: <<<[32mEOS[39m
+      [32m{kop_organisasi}[39m
+      
+      [32m{alamat_organisasi}[39m
+      [32mEmail: {email_organisasi}[39m
+      
+      [32mSURAT REKOMENDASI PENGESAHAN[39m
+      
+      [32mNomor: {nomor_surat}[39m
+      
+      [32mTentang[39m
+      [32mSUSUNAN PENGURUS PIMPINAN RANTING[39m
+      [32mIKATAN PELAJAR NAHDLATUL ULAMA' {nama_desa}[39m
+      [32mMASA BAKTI {masa_bhakti}[39m
+      
+      [32m{nama_organisasi_lengkap}, setelah:[39m
+      
+      [32mMenimbang:[39m
+      [32m1. Bahwa untuk menjamin adanya keberlangsungan organisasi, diperlukan kepengurusan yang solid, berkapasitas tinggi dan memiliki legitimasi yang kuat dalam menjalankan tugas-tugas organisasi;[39m
+      [32m2. Bahwa agar kepengurusan Pimpinan Ranting Ikatan Pelajar Nahdlatul Ulama {nama_desa_lower} yang telah tersusun memiliki legitimasi yang kuat, maka perlu dilegalisasi dengan Surat Pengesahan Pimpinan Pusat;[39m
+      [32m3. Bahwa untuk mendapatkan Surat Pengesahan Pimpinan Pusat, perlu diterbitkan Surat Rekomendasi Pengesahan.[39m
+      
+      [32mMengingat:[39m
+      [32m1. Pedoman Dasar IPNU;[39m
+      [32m2. Pedoman Rumah Tangga IPNU;[39m
+      [32m3. Peraturan Organisasi IPNU.[39m
+      
+      [32mMemperhatikan:[39m
+      [32m1. Surat Permohonan Pengesahan dari Pimpinan Ranting IPNU {status_desa} {nama_desa_lower};[39m
+      [32m2. Berita Acara Konferensi Ranting IPNU {status_desa} {nama_desa_lower}.[39m
+      
+      [32mMEMUTUSKAN[39m
+      
+      [32mMenetapkan:[39m
+      [32m1. Memberikan rekomendasi pengesahan kepada Pimpinan Ranting Ikatan Pelajar Nahdlatul Ulama {nama_desa_lower} masa bhakti {masa_bhakti};[39m
+      [32m2. Meneruskan rekomendasi ini kepada Pimpinan Pusat untuk diterbitkan Surat Pengesahan;[39m
+      [32m3. Surat Rekomendasi Pengesahan ini berlaku sebagai surat pengesahan sementara sampai terbitnya Surat Pengesahan dari Pimpinan Pusat;[39m
+      [32m4. Surat Rekomendasi Pengesahan ini berlaku sejak tanggal ditetapkan dan akan ditinjau kembali apabila terdapat kekurangan.[39m
+      
+      [32mDitetapkan di: {nama_wilayah}[39m
+      [32mPada tanggal: {tanggal_hijriah}[39m
+      [32m{tanggal_masehi}[39m
+      
+      [32m{tingkat_organisasi}[39m
+      [32mIkatan Pelajar Nahdlatul Ulama[39m
+      [32m{nama_wilayah}[39m
+      
+      [32mKetua Sekretaris[39m
+      
+      [32m{nama_ketua} {nama_sekretaris}[39m
+      [32mNIA: {nia_ketua} NIA: {nia_sekretaris}[39m
+      
+      [32mTembusan Kepada:[39m
+      [32m1. Pimpinan Cabang IPNU Gresik[39m
+      [32m2. Majelis Wakil Cabang NU Kecamatan {nama_wilayah}[39m
+      [32m3. PRNU {nama_desa_lower}[39m
+      [32mEOS[39m,
+    [34mplaceholder[39m: [36mnull[39m,
+    [34mjenis[39m: [32m"[39m[32mkeluar[39m[32m"[39m,
+    [34mstatus[39m: [32m"[39m[32maktif[39m[32m"[39m,
+    [34mcreated_at[39m: [32m"[39m[32m2026-05-20 08:48:59[39m[32m"[39m,
+    [34mupdated_at[39m: [32m"[39m[32m2026-05-20 08:48:59[39m[32m"[39m,
+    [34mfields[39m: [32m"[39m[32m{[39m\"[32mkop_organisasi[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32mnama_desa[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mnama_desa_lower[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32mmasa_bhakti[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mstatus_desa[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mmengingat_pd[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mmengingat_prt[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mmengingat_po[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mmemperhatikan_a[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mmemperhatikan_b[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mmenetapkan_1[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mmenetapkan_2[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mmenetapkan_3[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mmenetapkan_4[39m\"[32m:[39m\"[32mtextarea[39m\"[32m,[39m\"[32mtembusan_1[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mtembusan_2[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mtembusan_3[39m\"[32m:[39m\"[32mtext[39m\"[32m,[39m\"[32mtingkat_organisasi[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32mnama_wilayah[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32malamat_organisasi[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32memail_organisasi[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32mnama_organisasi_lengkap[39m\"[32m:[39m\"[32mhidden[39m\"[32m,[39m\"[32mpembuka_surat[39m\"[32m:[39m\"[32mhidden[39m\"[32m}[39m[32m"[39m,
+    [34mklasifikasi[39m: [32m"[39m[32mSRP[39m[32m"[39m,
+    [34mlampiran[39m: [32m"[39m[32m1 (susunan pengurus)[39m[32m"[39m,
+    [34mjenis_surat[39m: [32m"[39m[32mpengesahan[39m[32m"[39m,
+    [34murutan[39m: [35m0[39m,
+    [34mis_active[39m: [36mtrue[39m,
+  }

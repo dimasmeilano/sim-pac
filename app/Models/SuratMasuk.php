@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class SuratMasuk extends Model
+{
+    use HasFactory;
+
+    protected $table = 'surat_masuk';
+
+    protected $fillable = [
+        'organization_id',
+        'nomor_surat',
+        'pengirim',
+        'perihal',
+        'isi_surat',
+        'lampiran',
+        'tanggal_surat',
+        'tanggal_diterima',
+        'status',
+        'disposisi',
+        'diterima_oleh'
+    ];
+
+    protected $casts = [
+        'tanggal_surat' => 'date',
+        'tanggal_diterima' => 'date',
+    ];
+
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    public function penerima()
+    {
+        return $this->belongsTo(User::class, 'diterima_oleh');
+    }
+
+    public function getStatusTextAttribute()
+    {
+        $statuses = [
+            'baru' => '<span class="badge badge-primary">Baru</span>',
+            'diproses' => '<span class="badge badge-warning">Diproses</span>',
+            'selesai' => '<span class="badge badge-success">Selesai</span>',
+        ];
+        return $statuses[$this->status] ?? '-';
+    }
+}
