@@ -19,6 +19,7 @@
     <!-- AdminLTE CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
 
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <!-- CDN TinyMCE -->
     <script src="https://cdn.tiny.cloud/1/your-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
     @stack('styles')
@@ -84,6 +85,63 @@
 
 
     @stack('scripts')
+    @auth
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // 1. Minta izin Notifikasi (jika belum)
+                if ("Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
+
+                // 2. Tunggu sampai Vite benar-benar selesai memuat Echo
+                console.log("Antena Global: Menunggu mesin Echo menyala...");
+
+                var waitForEcho = setInterval(function() {
+                    if (typeof window.Echo !== 'undefined') {
+                        clearInterval(waitForEcho); // Matikan timer penunggu
+                        console.log("Antena Global: Echo SIAP! Mengudara di frekuensi global-notif 📡");
+
+                        window.Echo.private('global-notif')
+                            .listen('MessageSent', (e) => {
+                                console.log("Antena Global menangkap sinyal masuk!", e);
+                                var currentUserId = {{ auth()->id() ?? 'null' }};
+
+                                // Jika pesan bukan dari diri sendiri
+                                if (currentUserId && e.message.user_id !== currentUserId) {
+
+                                    // Cek apakah user sedang buka halaman chat Progja tersebut
+                                    var isCurrentlyOnChatPage = window.location.pathname.includes(
+                                        '/progja/' + e.message.progja_id);
+
+                                    // Jika sedang di halaman lain (Dashboard, Absensi, dll)
+                                    if (!isCurrentlyOnChatPage) {
+                                        console.log("Memunculkan Pop-up Notifikasi Lintas Halaman!");
+
+                                        if (Notification.permission === "granted") {
+                                            var notif = new Notification("Pesan Baru: " + e.message.user
+                                                .name, {
+                                                    body: e.message.message ? e.message.message :
+                                                        '📂 Mengirim lampiran',
+                                                });
+
+                                            notif.onclick = function() {
+                                                // Pindah ke ruang chat jika pop-up diklik
+                                                window.location.href = '/progja/' + e.message.progja_id;
+                                                this.close();
+                                            };
+                                        }
+                                    } else {
+                                        console.log(
+                                            "Notifikasi global ditahan karena user sedang di dalam ruangan chat."
+                                            );
+                                    }
+                                }
+                            });
+                    }
+                }, 500); // Cek apakah Echo sudah siap setiap 0,5 detik
+            });
+        </script>
+    @endauth
 </body>
 
 </html>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\MessageSent;
 use App\Http\Controllers\Controller;
 use App\Models\Message;
 use App\Models\ProgramKerja;
@@ -19,6 +20,9 @@ class ProgramKerjaController extends Controller
 
     public function index()
     {
+        \App\Models\ProgramKerja::where('status', 'active')
+            ->where('tgl_selesai', '<', now()->toDateString())
+            ->update(['status' => 'completed']);
         $programKerja = ProgramKerja::with('organization', 'tugas')
             ->orderBy('created_at', 'desc')
             ->paginate(10);
@@ -146,70 +150,101 @@ class ProgramKerjaController extends Controller
 
     public function sendMessage(Request $request, ProgramKerja $progja)
     {
+        // Validasi: Pesan boleh kosong asalkan ada file, atau sebaliknya
         $request->validate([
-            'message' => 'required|string',
+            'message' => 'nullable|string',
+            'file'    => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx|max:5120',
         ]);
 
-        $message = $request->message;
-        $taggedUsers = [];
+        if (!$request->message && !$request->hasFile('file')) {
+            return response()->json(['error' => 'Pesan atau file tidak boleh kosong.'], 422);
+        }
 
-        // Cari mention dengan pattern @username
-        preg_match_all('/@([a-zA-Z0-9_]+)/', $message, $matches);
+        // =========================================================
+        // (Logika Regex @mention Anda taruh kembali di sini jika ada)
+        // =========================================================
 
-        if (!empty($matches[1])) {
-            $usernames = $matches[1];
-            $taggedUsers = User::whereIn('name', $usernames)->pluck('id')->toArray();
+        // Proses Upload File jika ada
+        $filePath = null;
+        $fileName = null;
+        $fileType = null;
 
-            // Ubah mention jadi link HTML
-            foreach ($usernames as $username) {
-                $user = User::where('name', $username)->first();
-                if ($user) {
-                    $message = str_replace(
-                        '@' . $username,
-                        '<a href="javascript:void(0)" class="tagged-user" data-user-id="' . $user->id . '">@' . $username . '</a>',
-                        $message
-                    );
-                }
-            }
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = $file->getClientOriginalName();
+            $fileType = $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('chat_files/' . $progja->id, time() . '_' . $fileName, 'public');
         }
 
         $messageData = Message::create([
-            'progja_id' => $progja->id,
-            'user_id' => Auth::id(),
-            'message' => $message,
-            'tagged_users' => !empty($taggedUsers) ? json_encode($taggedUsers) : null,
+            'progja_id'    => $progja->id,
+            'user_id'      => Auth::id(),
+            'message'      => $request->message ?? '',
+            'tagged_users' => null, // Sesuaikan dengan logika tag Anda
+            'file_path'    => $filePath,
+            'file_name'    => $fileName,
+            'file_type'    => $fileType,
+            'reply_to_id'  => $request->reply_to_id, // <-- TAMBAHKAN INI
         ]);
 
         $messageData->load('user');
 
+        // Trigger Broadcast (Jika Reverb/Pusher sudah jalan)
+        if (class_exists(\App\Events\MessageSent::class)) {
+            broadcast(new \App\Events\MessageSent($messageData))->toOthers();
+        }
+
         return response()->json([
             'success' => true,
-            'message' => [
-                'id' => $messageData->id,
-                'message' => $messageData->message,
-                'user' => [
-                    'name' => $messageData->user->name,
-                ],
-                'created_at' => $messageData->created_at->format('H:i, d/m/Y'),
-            ]
+            'message' => $messageData
         ]);
     }
 
 
     public function getMessages(ProgramKerja $progja)
     {
+        // 1. KITA AKTIFKAN KEMBALI 'repliedMessage.user'
         $messages = $progja->messages()
-            ->with('user')
-            ->orderBy('created_at', 'asc')  // <-- ASCENDING = lama di atas
+            ->with(['user', 'repliedMessage.user'])
+            ->orderBy('created_at', 'asc')
             ->get();
 
         return response()->json([
             'messages' => $messages->map(function ($msg) {
+
+                $date = $msg->created_at;
+                if ($date->isToday()) {
+                    $dateLabel = 'Hari ini';
+                } elseif ($date->isYesterday()) {
+                    $dateLabel = 'Kemarin';
+                } else {
+                    $dateLabel = $date->translatedFormat('d F Y');
+                }
+
+                // 2. KITA AKTIFKAN KEMBALI DATA REPLY-NYA
+                $replyData = null;
+                if ($msg->reply_to_id && $msg->repliedMessage) {
+                    $replyData = [
+                        'name'    => $msg->repliedMessage->user ? $msg->repliedMessage->user->name : 'User',
+                        'message' => $msg->repliedMessage->message ? $msg->repliedMessage->message : '📂 Lampiran File'
+                    ];
+                }
+
                 return [
-                    'id' => $msg->id,
-                    'message' => $msg->message,
-                    'user' => ['name' => $msg->user->name],
-                    'created_at' => $msg->created_at->format('H:i, d/m/Y'),
+                    'id'         => $msg->id,
+                    'user_id'    => $msg->user_id,
+                    'message'    => $msg->message,
+                    'file_path'  => $msg->file_path,
+                    'file_name'  => $msg->file_name,
+                    'file_type'  => $msg->file_type,
+                    'user'       => [
+                        'id'   => $msg->user->id ?? 0,
+                        'name' => $msg->user->name ?? 'Unknown'
+                    ],
+                    'time'       => $date->format('H:i'),
+                    'date_group' => $date->format('Y-m-d'),
+                    'date_label' => $dateLabel,
+                    'reply_to'   => $replyData, // Data reply dikirim ke Javascript
                 ];
             })
         ]);

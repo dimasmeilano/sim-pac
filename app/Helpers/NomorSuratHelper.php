@@ -13,15 +13,29 @@ class NomorSuratHelper
      */
     private static function getLastGlobalNomorUrut($tahun)
     {
-        $lastSurat = SuratKeluar::whereYear('created_at', $tahun)
-            ->orderBy('id', 'desc')
-            ->first();
+        // Ambil SEMUA surat di tahun ini (tanpa perlu diurutkan berdasarkan ID)
+        $semuaSurat = SuratKeluar::whereYear('created_at', $tahun)
+            ->whereNotNull('nomor_surat')
+            ->where('nomor_surat', '!=', '')
+            ->get();
 
-        if ($lastSurat && $lastSurat->nomor_surat) {
-            $parts = explode('/', $lastSurat->nomor_surat);
-            return isset($parts[0]) ? (int)$parts[0] : 0;
+        $maxNomor = 0;
+
+        // Loop semuanya dan cari angka yang paling tinggi
+        foreach ($semuaSurat as $surat) {
+            $parts = explode('/', $surat->nomor_surat);
+            $nomorDepan = $parts[0] ?? '';
+
+            // Jika itu angka, bandingkan. Ambil yang paling besar!
+            if (is_numeric($nomorDepan)) {
+                $angka = (int)$nomorDepan;
+                if ($angka > $maxNomor) {
+                    $maxNomor = $angka;
+                }
+            }
         }
-        return 0;
+
+        return $maxNomor;
     }
 
     /**
@@ -259,5 +273,51 @@ class NomorSuratHelper
         $tahun = date('Y', $timestamp);
 
         return $hari . ' ' . $bulan[$bulanIndex] . ' ' . $tahun;
+    }
+
+    /**
+     * Generate nomor Surat Bersama (IPNU & IPPNU)
+     */
+    public static function generateBersama($tingkat, $kodeIndeks, $periodeIpnu, $periodeIppnu, $bulan, $tahun = null)
+    {
+        $tingkat = strtoupper($tingkat);
+        $tahun = $tahun ?? date('Y');
+        $tahunDuaDigit = substr($tahun, -2);
+
+        $nomorUrut = self::getNextGlobalNomor($tahun);
+        $periodeGabungan = strtoupper($periodeIpnu) . '-' . strtoupper($periodeIppnu);
+        $tahunKelahiranGabungan = '7354-7455';
+
+        return implode('/', [
+            $nomorUrut,
+            $tingkat,
+            $kodeIndeks,
+            $periodeGabungan,
+            $tahunKelahiranGabungan,
+            $bulan,
+            $tahunDuaDigit
+        ]);
+    }
+
+    /**
+     * Generate nomor Surat Kepanitiaan
+     */
+    public static function generatePanitia($kodeIndeks, $periode, $bulan, $tahun = null, $organisasi = 'ipnu')
+    {
+        $tahun = $tahun ?? date('Y');
+        $tahunDuaDigit = substr($tahun, -2);
+
+        $nomorUrut = self::getNextGlobalNomor($tahun);
+        $tahunKelahiran = (strtolower($organisasi) == 'ippnu') ? '7455' : '7354';
+
+        return implode('/', [
+            $nomorUrut,
+            'Pan.Pel',
+            $kodeIndeks,
+            $tahunKelahiran,
+            strtoupper($periode),
+            $bulan,
+            $tahunDuaDigit
+        ]);
     }
 }

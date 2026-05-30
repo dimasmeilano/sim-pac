@@ -14,7 +14,11 @@ class Message extends Model
         'user_id',
         'message',
         'tagged_users',
-        'attachment'
+        'attachment',
+        'file_path',  // <-- Pastikan 3 baris ini ada!
+        'file_name',
+        'file_type',
+        'reply_to_id' // <-- Pastikan ini juga ada!
     ];
 
     public function programKerja()
@@ -31,5 +35,10 @@ class Message extends Model
     public function getTaggedUsersAttribute($value)
     {
         return $value ? json_decode($value, true) : [];
+    }
+
+    public function repliedMessage()
+    {
+        return $this->belongsTo(Message::class, 'reply_to_id'); // Ganti Message::class dengan nama Model Anda jika berbeda
     }
 }

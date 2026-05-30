@@ -4,36 +4,45 @@
 @section('page-title', 'Template Surat')
 
 @section('content')
-    <div class="card">
+    <div class="card card-primary shadow-sm">
         <div class="card-header">
-            <h3 class="card-title">Daftar Template Surat</h3>
+            <h3 class="card-title"><i class="fas fa-file-alt"></i> Daftar Template Surat</h3>
             <div class="card-tools">
-                <a href="{{ route('surat.template.create') }}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Tambah Template
+                @if (auth()->user()->hasRole('sekretaris_pac') ||
+                        auth()->user()->hasRole('sekretaris_ranting') ||
+                        auth()->user()->hasRole('sekretaris_komisariat') ||
+                        auth()->user()->hasRole('super_admin'))
+                    <a href="{{ route('surat.template.create') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> Tambah Template
+                    </a>
+                @endif
+                <a href="{{ route('surat.keluar.index') }}" class="btn btn-danger btn-sm">
+                    <i class="fas fa-arrow-left"></i> Kembali ke Data Surat
                 </a>
             </div>
         </div>
-        <div class="card-body">
+
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered table-striped">
-                    <thead>
+                <table class="table table-bordered table-striped table-hover mb-0">
+                    <thead class="bg-light">
                         <tr>
-                            <th>No</th>
+                            <th class="text-center" width="5%">No</th>
                             <th>Nama Template</th>
                             <th>Kode</th>
-                            <th>Jenis</th>
+                            <th class="text-center">Jenis</th>
                             <th>Placeholder</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center" width="15%">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($templates as $key => $item)
+                        @forelse ($templates as $key => $item)
                             <tr>
-                                <td>{{ $templates->firstItem() + $key }}</td>
+                                <td class="text-center">{{ $templates->firstItem() + $key }}</td>
                                 <td>{{ $item->nama }}</td>
                                 <td><code>{{ $item->kode }}</code></td>
-                                <td>
+                                <td class="text-center">
                                     @if ($item->jenis == 'keluar')
                                         <span class="badge badge-primary">Keluar</span>
                                     @else
@@ -42,36 +51,54 @@
                                 </td>
                                 <td>
                                     @foreach ($item->placeholder ?? [] as $placeholder)
-                                        <code>{{ $placeholder }}</code>
+                                        <span class="badge badge-secondary mb-1">{{ $placeholder }}</span>
                                     @endforeach
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     @if ($item->status == 'aktif')
-                                        <span class="badge badge-success">Aktif</span>
+                                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Aktif</span>
                                     @else
-                                        <span class="badge badge-danger">Nonaktif</span>
+                                        <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Nonaktif</span>
                                     @endif
                                 </td>
-                                <td>
-                                    <a href="{{ route('surat.template.edit', $item) }}" class="btn btn-warning btn-sm">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <form action="{{ route('surat.template.destroy', $item) }}" method="POST"
-                                        style="display:inline;">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="btn btn-danger btn-sm" onclick="return confirm('Yakin hapus?')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </form>
+                                <td class="text-center">
+                                    @if (auth()->user()->hasRole('sekretaris_pac') ||
+                                            auth()->user()->hasRole('sekretaris_ranting') ||
+                                            auth()->user()->hasRole('sekretaris_komisariat') ||
+                                            auth()->user()->hasRole('super_admin'))
+                                        <a href="{{ route('surat.template.edit', $item) }}" class="btn btn-warning btn-sm"
+                                            title="Edit Template">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+
+                                        <form action="{{ route('surat.template.destroy', $item) }}" method="POST"
+                                            class="d-inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Hapus Template"
+                                                onclick="return confirm('Apakah Anda yakin ingin menghapus template ini secara permanen?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-muted text-sm"><i class="fas fa-lock"></i> Terkunci</span>
+                                    @endif
                                 </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="fas fa-folder-open fa-3x mb-3 d-block text-black-50"></i>
+                                    Belum ada data template surat.
                                 </td>
-                        @endforeach
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
-        <div class="card-footer">
+
+        <div class="card-footer bg-white border-top">
             {{ $templates->links() }}
         </div>
     </div>

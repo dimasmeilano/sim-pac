@@ -61,4 +61,9 @@ class ProgramKerja extends Model
         ];
         return $jenis[$this->jenis] ?? ucfirst($this->jenis);
     }
+
+    public function repliedMessage()
+    {
+        return $this->belongsTo(Message::class, 'reply_to_id'); // Ganti Message::class dengan nama Model Anda jika berbeda
+    }
 }

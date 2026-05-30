@@ -4,7 +4,6 @@
 @section('page-title', 'Manajemen Keuangan')
 
 @section('content')
-    <!-- Ringkasan Saldo -->
     <div class="row">
         <div class="col-md-3">
             <div class="small-box bg-info">
@@ -33,21 +32,19 @@
         <div class="col-md-3">
             <div class="small-box bg-primary">
                 <div class="inner">
-                    <h3>Rp {{ number_format($saldo ?? 0, 0, ',', '.') }}</h3>
+                    <h3>Rp {{ number_format($saldoGabungan ?? 0, 0, ',', '.') }}</h3>
                     <p>Total Saldo (Gabung)</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Informasi saldo -->
     <div class="alert alert-warning">
         <i class="fas fa-info-circle"></i>
         Saldo di atas hanya menghitung transaksi yang sudah <strong>DIVALIDASI</strong>.
         Transaksi dengan status "Menunggu Validasi" belum mempengaruhi saldo.
     </div>
 
-    <!-- Filter -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Filter Transaksi</h3>
@@ -110,7 +107,6 @@
         </div>
     </div>
 
-    <!-- Tabel Transaksi -->
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">Daftar Transaksi</h3>
@@ -164,18 +160,22 @@
                                 </td>
                                 <td>
                                     @php
+                                        $user = auth()->user();
+                                        $isSuperAdmin = $user->hasRole('super_admin');
                                         $isBendaharaIpnu =
-                                            auth()->user()->hasRole('bendahara_pac') &&
-                                            auth()->user()->organization?->jenis_organisasi == 'ipnu';
+                                            $user->hasRole('bendahara_pac') &&
+                                            $user->organization?->jenis_organisasi == 'ipnu';
                                         $isBendaharaIppnu =
-                                            auth()->user()->hasRole('bendahara_pac') &&
-                                            auth()->user()->organization?->jenis_organisasi == 'ippnu';
-                                        $canValidate = $isBendaharaIpnu || $isBendaharaIppnu;
+                                            $user->hasRole('bendahara_pac') &&
+                                            $user->organization?->jenis_organisasi == 'ippnu';
+
+                                        $canValidate = $isBendaharaIpnu || $isBendaharaIppnu || $isSuperAdmin;
                                     @endphp
 
                                     @if ($item->status_validasi == 'menunggu' && $canValidate)
                                         @if (
-                                            ($item->jenis_organisasi == 'ipnu' && $isBendaharaIpnu) ||
+                                            $isSuperAdmin ||
+                                                ($item->jenis_organisasi == 'ipnu' && $isBendaharaIpnu) ||
                                                 ($item->jenis_organisasi == 'ippnu' && $isBendaharaIppnu) ||
                                                 $item->jenis_organisasi == 'bersama')
                                             <button type="button" class="btn btn-success btn-sm" data-toggle="modal"
@@ -190,18 +190,19 @@
                                         @endif
                                     @endif
 
-                                    @if (in_array($item->status_validasi, ['draft', 'menunggu', 'ditolak']) && auth()->user()->id == $item->created_by)
+                                    @if (
+                                        $isSuperAdmin ||
+                                            (in_array($item->status_validasi, ['draft', 'menunggu', 'ditolak']) && $user->id == $item->created_by))
                                         <a href="{{ route('keuangan.edit', $item) }}" class="btn btn-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                    @endif
 
-                                    @if (in_array($item->status_validasi, ['draft', 'menunggu', 'ditolak']) && auth()->user()->id == $item->created_by)
                                         <form action="{{ route('keuangan.destroy', $item) }}" method="POST"
                                             style="display:inline;">
                                             @csrf
                                             @method('DELETE')
-                                            <button class="btn btn-danger btn-sm" onclick="return confirm('Yakin hapus?')">
+                                            <button class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Yakin hapus transaksi ini?')">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
@@ -224,7 +225,6 @@
         </div>
     </div>
 
-    <!-- Modal Validasi -->
     <div class="modal fade" id="modalValidate" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -300,7 +300,10 @@
                 modal.find('#transaksi-nominal').text(nominal);
                 modal.find('#transaksi-creator').text(creator);
                 modal.find('#transaksi-tanggal').text(tanggal);
-                modal.find('#formValidate').attr('action', '/keuangan/' + id + '/validate');
+
+                // FIX 3: Menggunakan helper url() agar kebal terhadap perubahan domain/prefix
+                var actionUrl = "{{ url('keuangan') }}/" + id + "/validate";
+                modal.find('#formValidate').attr('action', actionUrl);
 
                 // Tampilkan bukti transaksi
                 var buktiContainer = modal.find('#bukti-container');

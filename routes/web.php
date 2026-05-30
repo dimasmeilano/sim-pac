@@ -25,6 +25,8 @@ Route::prefix('install')->group(function () {
     Route::post('/process', [InstallerController::class, 'process'])->name('installer.process');
     Route::get('/final', [InstallerController::class, 'final'])->name('installer.final');
 });
+Route::get('/verifikasi-surat', [SuratController::class, 'verifikasi'])->name('verifikasi.surat');
+Route::get('/lacak', [\App\Http\Controllers\Admin\SuratController::class, 'formLacak'])->name('lacak.surat');
 
 // ============ AUTH ROUTES (DEFAULT LARAVEL) ============
 Auth::routes();
@@ -124,6 +126,7 @@ Route::middleware(['auth'])->group(function () {
         // Sekarang ini akan otomatis memiliki nama 'surat.template.index'
         Route::get('surat/template/get-placeholder', [SuratTemplateController::class, 'getPlaceholder'])->name('template.get-placeholder');
         Route::resource('template', SuratTemplateController::class)->except(['show']);
+        Route::get('keluar/get-nomor-otomatis', [SuratController::class, 'getNomorOtomatis'])->name('keluar.nomor-otomatis');
 
 
 
@@ -142,7 +145,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('keluar/{surat}/validasi-wakil', [SuratController::class, 'validasiWakil'])->name('keluar.validasi-wakil');
         Route::post('keluar/{surat}/ttd-ketua', [SuratController::class, 'ttdKetua'])->name('keluar.ttd-ketua');
         Route::post('keluar/{surat}/ttd-sekretaris', [SuratController::class, 'ttdSekretaris'])->name('keluar.ttd-sekretaris');
-        Route::post('keluar/{surat}/ajukan-validasi', [SuratController::class, 'ajukanValidasi'])->name('keluar.ajukan-validasi');
+        Route::post('keluar/{surat}/ajukan', [SuratController::class, 'ajukanValidasi'])->name('keluar.ajukan');
+        Route::post('keluar/{id}/approve', [SuratController::class, 'approve'])->name('keluar.approve');
+        Route::get('/surat/keluar/{suratKeluar}/edit', [SuratController::class, 'keluarEdit'])->name('surat.keluar.edit');
+
+        // Rute Update Dipisah agar logikanya tidak bertabrakan
+        Route::put('/surat/keluar/{suratKeluar}/update-umum', [SuratController::class, 'keluarUpdateUmum'])->name('keluar.update.umum');
+        Route::put('/surat/keluar/{suratKeluar}/update-khusus', [SuratController::class, 'keluarUpdateKhusus'])->name('keluar.update.khusus');
 
         // Surat Masuk
         Route::get('masuk', [SuratController::class, 'masukIndex'])->name('masuk.index');

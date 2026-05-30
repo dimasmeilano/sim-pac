@@ -124,24 +124,49 @@ class SuratTemplateSeeder extends Seeder
     {nama_wilayah_upper}
 </div>
 
-<table class="tanda-tangan" style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 25px;">
-    <tbody>
+ <table class="tanda-tangan" style="width: 100%; border-collapse: collapse; border: none;">
+        <tbody>
+            <tr>
+                <td style="width: 40%; text-align: center; border: none; vertical-align: top;">
+                    Ketua
+                    <div style="min-height: 60px;">
+                        [TTD_KETUA]
+                    </div>
+                    <strong style="text-decoration: underline;">{nama_ketua}</strong><br>
+                    NIA. {nia_ketua}
+                </td>
+                
+                <td style="width: 20%; text-align: center; border: none; vertical-align: middle;">
+                    [STEMPEL]
+                </td>
+
+                <td style="width: 40%; text-align: center; border: none; vertical-align: top;">
+                    Sekretaris
+                    <div style="min-height: 60px;">
+                        [TTD_SEKRETARIS]
+                    </div>
+                    <strong style="text-decoration: underline;">{nama_sekretaris}</strong><br>
+                    NIA. {nia_sekretaris}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <br>
+<br>
+<div style="margin-top: 10px; margin-bottom: 15px;">
+    <table style="width: 100%; border: none;">
         <tr>
-            <td style="width: 50%; text-align: center; border: none; vertical-align: top;">
-                Ketua
-                <div style="height: 75px;"></div> 
-                <strong style="text-decoration: underline;">{nama_ketua}</strong><br>
-                NIA. {nia_ketua}
+            <td style="width: 80px; vertical-align: top; border: none;">
+                [QR_TTE]
             </td>
-            <td style="width: 50%; text-align: center; border: none; vertical-align: top;">
-                Sekretaris
-                <div style="height: 75px;"></div> 
-                <strong style="text-decoration: underline;">{nama_sekretaris}</strong><br>
-                NIA. {nia_sekretaris}
+            <td style="vertical-align: top; border: none; padding-left: 15px; font-size: 10px; color: #333; line-height: 1.4;">
+                <i><b>Validasi Keaslian Dokumen:</b><br>
+                Surat ini telah ditandatangani secara elektronik oleh Ketua PAC IPNU-IPPNU.<br>
+                Scan QR Code di samping untuk memastikan keaslian surat melalui sistem.</i>
             </td>
         </tr>
-    </tbody>
-</table>',
+    </table>
+</div>',
                 'urutan' => 2,
                 'is_active' => true,
                 'has_attachment' => false,
@@ -217,7 +242,7 @@ class SuratTemplateSeeder extends Seeder
                     'nama_desa_lower' => 'hidden',
                     'status_desa_lower' => 'hidden',
                     'masa_bhakti' => 'text',
-                    'status_desa' => 'text',
+                    'status_desa' => 'select:DESA,KELURAHAN,RANTING,KOMISARIAT',
                     'surat_ranting_nomor' => 'text',
                     'surat_ranting_tanggal' => 'date',
                     'surat_prnu_nomor' => 'text',
@@ -373,10 +398,74 @@ Tentang<br>
             <td style="border: none; padding: 0;">PRNU  {status_desa_lower} {nama_desa_lower}</td>
         </tr>
     </table>
+</div>
+<br>
+<br>
+<div style="margin-top: 10px; margin-bottom: 15px;">
+    <table style="width: 100%; border: none;">
+        <tr>
+            <td style="width: 80px; vertical-align: top; border: none;">
+                [QR_TTE]
+            </td>
+            <td style="vertical-align: top; border: none; padding-left: 15px; font-size: 10px; color: #333; line-height: 1.4;">
+                <i><b>Validasi Keaslian Dokumen:</b><br>
+                Surat ini telah ditandatangani secara elektronik oleh Ketua PAC IPNU-IPPNU.<br>
+                Scan QR Code di samping untuk memastikan keaslian surat melalui sistem.</i>
+            </td>
+        </tr>
+    </table>
 </div>',
                 'urutan' => 5,
                 'has_attachment' => true,
                 'is_active' => true,
+                'status' => 'aktif',
+            ]
+        );
+        // 5. Surat Umum
+
+        SuratTemplate::updateOrCreate(
+            ['kode' => 'UMUM'], // Sesuaikan nama kolom identifier Anda (misal: jenis_surat / kode_template)
+            [
+                'nama' => 'Template Surat Umum (Bebas)',
+                'klasifikasi' => 'UMUM', // Bisa disesuaikan dengan kode klasifikasi umum di PAC Anda
+                'lampiran' => '-', // Dibuat strip (-) saja karena nanti akan diisi manual di form
+                'jenis_surat' => 'umum',
+                'konten' =>   '<div style="font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5;">
+            <table style="width: 100%; border: none; margin-bottom: 20px;">
+                <tr>
+                    <td style="width: 12%; vertical-align: top;">Nomor</td>
+                    <td style="width: 2%; vertical-align: top;">:</td>
+                    <td style="vertical-align: top;">{nomor_surat}</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">Lampiran</td>
+                    <td style="vertical-align: top;">:</td>
+                    <td style="vertical-align: top;">{lampiran}</td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: top;">Hal</td>
+                    <td style="vertical-align: top;">:</td>
+                    <td style="vertical-align: top;"><b>{perihal}</b></td>
+                </tr>
+            </table>
+
+            <p style="margin-bottom: 5px;">Kepada Yth.</p>
+            <p style="margin-top: 0; font-weight: bold;">{tujuan_surat}</p>
+            <p style="margin-top: 0;">di -<br>&nbsp;&nbsp;&nbsp;&nbsp;Tempat</p>
+
+            <div style="text-align: justify; margin-top: 20px; margin-bottom: 30px; min-height: 150px;">
+                [ISI_SURAT_BEBAS]
+            </div>
+
+            <div style="text-align: right; margin-bottom: 20px;">
+                Gresik, {tanggal_surat}
+            </div>
+
+            [BLOK_TANDA_TANGAN]
+        </div>',
+                'urutan' => 999, // Urutan paling akhir
+                'is_active' => true,
+                'has_attachment' => false,
                 'status' => 'aktif',
             ]
         );

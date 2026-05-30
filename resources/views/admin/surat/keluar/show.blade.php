@@ -51,13 +51,11 @@
             box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
             border-radius: 3px;
             margin-left: 60px;
-            /* Memberi jarak agar ikon tidak menabrak kotak teks */
             margin-right: 0;
             background: #fff;
             color: #444;
             padding: 0;
             word-wrap: break-word;
-            /* Mencegah teks terpotong huruf per huruf */
         }
 
         .timeline>div>.timeline-item>.time {
@@ -94,7 +92,7 @@
             display: inline-block;
         }
 
-        <style>.ttd-preview {
+        .ttd-preview {
             margin-top: 50px;
             width: 100%;
             overflow: auto;
@@ -121,13 +119,29 @@
             clear: both;
         }
     </style>
-
-    </style>
 @endpush
 
 @section('content')
-    <div class="row">
+    @php
+        // LOGIKA PINTAR UNTUK TOMBOL AKSI
+        $user = auth()->user();
+        $isCreator = $suratKeluar->created_by == $user->id;
+        $jenisOrg = strtolower($user->organization->jenis_organisasi ?? 'ipnu');
 
+        // Cek Role
+        $isWasek = $user->hasRole('wakil_sekretaris') || str_contains(strtolower($user->role ?? ''), 'wasek');
+        $isSekretaris = $user->hasRole('sekretaris_pac') || str_contains(strtolower($user->role ?? ''), 'sekretaris');
+        $isKetua = $user->hasRole('ketua_pac') || str_contains(strtolower($user->role ?? ''), 'ketua');
+
+        // Cek Status ACC Surat Bersama
+        $sudahAccSekretarisBersama =
+            ($jenisOrg == 'ipnu' && $suratKeluar->acc_sekretaris_ipnu_at) ||
+            ($jenisOrg == 'ippnu' && $suratKeluar->acc_sekretaris_ippnu_at);
+        $sudahAccKetuaBersama =
+            ($jenisOrg == 'ipnu' && $suratKeluar->acc_ipnu_at) || ($jenisOrg == 'ippnu' && $suratKeluar->acc_ippnu_at);
+    @endphp
+
+    <div class="row">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
@@ -148,11 +162,14 @@
                             <td>{{ $suratKeluar->tujuan }}</td>
                         </tr>
                         <tr>
-                            <th>Template</th>
+                            <th>Penerbit / Jenis</th>
                             <td>
-                                {{ $suratKeluar->template->nama ?? '-' }}
-                                @if ($suratKeluar->template)
-                                    ({{ $suratKeluar->template->kode }})
+                                @if ($suratKeluar->penerbit_surat == 'bersama')
+                                    <span class="badge badge-primary">Surat Bersama (IPNU-IPPNU)</span>
+                                @elseif($suratKeluar->penerbit_surat == 'panitia')
+                                    <span class="badge badge-warning">Panitia Pelaksana</span>
+                                @else
+                                    <span class="badge badge-info">Pimpinan (Mandiri)</span>
                                 @endif
                             </td>
                         </tr>
@@ -162,7 +179,7 @@
                                 @if ($suratKeluar->lampiran)
                                     <a href="{{ asset('storage/' . $suratKeluar->lampiran) }}" target="_blank"
                                         class="btn btn-sm btn-info">
-                                        <i class="fas fa-download"></i> Download
+                                        <i class="fas fa-download"></i> Download Lampiran
                                     </a>
                                 @else
                                     -
@@ -171,7 +188,23 @@
                         </tr>
                         <tr>
                             <th>Status</th>
-                            <td>{!! $suratKeluar->status_validasi_text !!}</td>
+                            <td>
+                                @if ($suratKeluar->status_validasi == 'draft')
+                                    <span class="badge badge-secondary">Draft</span>
+                                @elseif($suratKeluar->status_validasi == 'menunggu_validasi_wakil')
+                                    <span class="badge badge-warning">Menunggu Validasi Wasek</span>
+                                @elseif($suratKeluar->status_validasi == 'menunggu_ttd_sekretaris')
+                                    <span class="badge badge-info">Menunggu TTD Sekretaris</span>
+                                @elseif($suratKeluar->status_validasi == 'menunggu_ttd_ketua')
+                                    <span class="badge badge-primary">Menunggu TTD Ketua</span>
+                                @elseif($suratKeluar->status_validasi == 'selesai')
+                                    <span class="badge badge-success">Selesai & Sah</span>
+                                @elseif($suratKeluar->status_validasi == 'ditolak')
+                                    <span class="badge badge-danger">Ditolak</span>
+                                @else
+                                    <span class="badge badge-dark">{{ $suratKeluar->status_validasi }}</span>
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <th>Isi Surat</th>
@@ -186,70 +219,76 @@
                             </td>
                         </tr>
                     </table>
-                    <div class="ttd-preview">
-                        <div class="kiri">
-                            <div>Ketua</div>
-                            @if ($suratKeluar->status_validasi == 'selesai' && $suratKeluar->ttd_ketua_file)
-                                <div class="ttd-image">
-                                    <img src="{{ asset('storage/' . $suratKeluar->ttd_ketua_file) }}"
-                                        style="max-height: 60px;">
-                                </div>
-                            @else
-                                <div style="height: 50px;"></div>
-                            @endif
-                            <u>{{ $suratKeluar->ditandatanganiKetuaOleh->name ?? '_____________________' }}</u>
-                            <div><small>NIA: {{ $suratKeluar->ditandatanganiKetuaOleh->nik ?? '-' }}</small></div>
-                        </div>
-                        <div class="kanan">
-                            <div>Sekretaris</div>
-                            @if ($suratKeluar->ttd_sekretaris_file)
-                                <div class="ttd-image">
-                                    <img src="{{ asset('storage/' . $suratKeluar->ttd_sekretaris_file) }}"
-                                        style="max-height: 60px;">
-                                </div>
-                            @else
-                                <div style="height: 50px;"></div>
-                            @endif
-                            <u>{{ $suratKeluar->ditandatanganiSekretarisOleh->name ?? '_____________________' }}</u>
-                            <div><small>NIA: {{ $suratKeluar->ditandatanganiSekretarisOleh->nik ?? '-' }}</small></div>
-                        </div>
-                    </div>
                     <div class="clearfix"></div>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4">
-
             <div class="card card-primary card-outline">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">Aksi</h3>
+                    <h3 class="card-title">Aksi Validasi</h3>
                 </div>
                 <div class="card-body">
-                    @include('admin.surat.keluar.partials.tombol-aksi', ['suratKeluar' => $suratKeluar])
 
-                    <a href="{{ route('surat.keluar.index') }}" class="btn btn-default btn-block mt-2">
-                        <i class="fas fa-arrow-left"></i> Kembali
+                    @if ($suratKeluar->status_validasi == 'draft' && $isCreator)
+                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modalAjukan">
+                            <i class="fas fa-paper-plane"></i> Ajukan Validasi
+                        </button>
+                    @endif
+
+                    @if ($suratKeluar->status_validasi == 'menunggu_validasi_wakil' && $suratKeluar->divalidasi_oleh == $user->id)
+                        <form action="{{ route('surat.keluar.approve', $suratKeluar->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="btn btn-info btn-block mb-2"
+                                onclick="return confirm('Apakah Anda yakin isi dokumen ini sudah benar?')">
+                                <i class="fas fa-check-double"></i> Validasi Dokumen (Wasek)
+                            </button>
+                        </form>
+                    @endif
+
+                    @if ($suratKeluar->status_validasi == 'menunggu_ttd_sekretaris' && $isSekretaris)
+                        @if ($suratKeluar->penerbit_surat != 'bersama' || !$sudahAccSekretarisBersama)
+                            <form action="{{ route('surat.keluar.approve', $suratKeluar->id) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-warning btn-block mb-2"
+                                    onclick="return confirm('Sematkan tanda tangan Sekretaris?')">
+                                    <i class="fas fa-signature"></i> Setujui & TTD Sekretaris
+                                </button>
+                            </form>
+                        @else
+                            <button class="btn btn-outline-secondary btn-block mb-2 disabled" disabled>Menunggu Sekretaris
+                                Rekan ACC</button>
+                        @endif
+                    @endif
+
+                    @if ($suratKeluar->status_validasi == 'menunggu_ttd_ketua' && $isKetua)
+                        @if ($suratKeluar->penerbit_surat != 'bersama' || !$sudahAccKetuaBersama)
+                            <form action="{{ route('surat.keluar.approve', $suratKeluar->id) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-success btn-block mb-2"
+                                    onclick="return confirm('Sah-kan dokumen ini dan Generate QR Code TTE?')">
+                                    <i class="fas fa-qrcode"></i> Sah-kan & Generate TTE
+                                </button>
+                            </form>
+                        @else
+                            <button class="btn btn-outline-secondary btn-block mb-2 disabled" disabled>Menunggu Ketua Rekan
+                                ACC</button>
+                        @endif
+                    @endif
+
+                    @if ($suratKeluar->status_validasi == 'selesai')
+                        <a href="{{ route('surat.keluar.download', $suratKeluar->id) }}"
+                            class="btn btn-danger btn-block mb-2">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </a>
+                    @endif
+
+                    <a href="{{ route('surat.keluar.index') }}" class="btn btn-default btn-block mt-3">
+                        <i class="fas fa-arrow-left"></i> Kembali ke Data Surat
                     </a>
                 </div>
             </div>
-
-            @if ($suratKeluar->signer)
-                <div class="card card-success card-outline">
-                    <div class="card-header bg-success text-white">
-                        <h3 class="card-title">Informasi Tanda Tangan</h3>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Ditandatangani Oleh:</strong> {{ $suratKeluar->signer->name }}</p>
-                        <p><strong>Tanggal:</strong>
-                            {{ $suratKeluar->tanggal_ttd ? date('d/m/Y H:i', strtotime($suratKeluar->tanggal_ttd)) : '-' }}
-                        </p>
-                        <p><strong>Tanggal Kirim:</strong>
-                            {{ $suratKeluar->tanggal_kirim ? date('d/m/Y', strtotime($suratKeluar->tanggal_kirim)) : '-' }}
-                        </p>
-                    </div>
-                </div>
-            @endif
 
             <div class="card card-info card-outline">
                 <div class="card-header bg-info text-white">
@@ -259,7 +298,6 @@
                 </div>
                 <div class="card-body">
                     <div class="timeline timeline-inverse">
-
                         <div class="time-label">
                             <span class="bg-info">{{ $suratKeluar->created_at->format('d/m/Y H:i') }}</span>
                         </div>
@@ -282,7 +320,9 @@
                                     <h3 class="timeline-header">Diajukan Validasi</h3>
                                     <div class="timeline-body">
                                         Diajukan oleh: <strong>{{ $suratKeluar->diajukanOleh->name ?? '-' }}</strong><br>
-                                        Validator: <strong>{{ $suratKeluar->divalidasiOleh->name ?? '-' }}</strong>
+                                        @if ($suratKeluar->divalidasiOleh)
+                                            Validator (Wasek): <strong>{{ $suratKeluar->divalidasiOleh->name }}</strong>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -294,13 +334,9 @@
                                 <div class="timeline-item">
                                     <span class="time"><i class="fas fa-clock"></i>
                                         {{ \Carbon\Carbon::parse($suratKeluar->tanggal_validasi)->diffForHumans() }}</span>
-                                    <h3 class="timeline-header">Divalidasi Wakil</h3>
+                                    <h3 class="timeline-header">Divalidasi Wakil Sekretaris</h3>
                                     <div class="timeline-body">
                                         Divalidasi oleh: <strong>{{ $suratKeluar->divalidasiOleh->name ?? '-' }}</strong>
-                                        @if ($suratKeluar->catatan_validasi)
-                                            <br><small class="text-muted">Catatan:
-                                                {{ $suratKeluar->catatan_validasi }}</small>
-                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -354,7 +390,6 @@
                                 <div class="timeline-item">
                                     <h3 class="timeline-header">Surat Ditolak</h3>
                                     <div class="timeline-body">
-                                        Ditolak oleh: <strong>{{ $suratKeluar->divalidasiOleh->name ?? '-' }}</strong><br>
                                         Catatan: {{ $suratKeluar->catatan_validasi ?? '-' }}
                                     </div>
                                 </div>
@@ -367,6 +402,52 @@
                     </div>
                 </div>
             </div>
-
         </div>
-</div> @endsection
+    </div>
+
+    @if ($suratKeluar->status_validasi == 'draft' && $isCreator)
+        <div class="modal fade" id="modalAjukan" tabindex="-1" role="dialog" aria-labelledby="modalAjukanLabel"
+            aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <form action="{{ route('surat.keluar.ajukan', $suratKeluar->id) }}" method="POST">
+                        @csrf
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="modalAjukanLabel">Ajukan Validasi Dokumen</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+
+                        <div class="modal-body">
+                            <p>Anda akan mengajukan draf surat ini ke Sekretaris untuk divalidasi.</p>
+
+                            <div class="form-group">
+                                <label>Pilih Sekretaris (Pemeriksa) <span class="text-danger">*</span></label>
+
+                                @php
+                                    $tingkat = strtolower(auth()->user()->organization->type ?? 'pac');
+                                    $roleSekretaris = 'sekretaris_' . $tingkat;
+                                @endphp
+
+                                <select name="pemeriksa_id" class="form-control" required>
+                                    <option value="">-- Pilih Sekretaris --</option>
+                                    @foreach (\App\Models\User::role($roleSekretaris)->where('organization_id', auth()->user()->organization_id)->where('id', '!=', auth()->id())->get() as $sekretaris)
+                                        <option value="{{ $sekretaris->id }}">{{ $sekretaris->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Ajukan ke
+                                Sekretaris</button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
+@endsection

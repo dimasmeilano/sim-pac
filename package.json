@@ -11,12 +11,15 @@
         "@tailwindcss/vite": "^4.0.0",
         "bootstrap": "^5.2.3",
         "concurrently": "^9.0.1",
+        "laravel-echo": "^2.3.4",
         "laravel-vite-plugin": "^3.1",
+        "pusher-js": "^8.5.0",
         "sass": "^1.56.1",
         "tailwindcss": "^4.0.0",
         "vite": "^8.0.0"
     },
     "dependencies": {
+        "axios": "^1.16.1",
         "qz-tray": "^2.2.6"
     }
 }

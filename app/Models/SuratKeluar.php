@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 class SuratKeluar extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $table = 'surat_keluar';
 
@@ -26,22 +28,38 @@ class SuratKeluar extends Model
         'ditandatangani_oleh',
         'tanggal_ttd',
         'tanggal_kirim',
-        'status_validasi',   // <-- PASTIKAN INI ADA!
-        'diajukan_oleh',
-        'divalidasi_oleh',
+        'status_validasi',
         'diajukan_oleh',
         'divalidasi_oleh',
         'tanggal_validasi',
-        'ditandatangani_sekretaris_oleh', // <-- PASTIKAN INI ADA
-        'tanggal_ttd_sekretaris',         // <-- PASTIKAN INI ADA
-        'ditandatangani_ketua_oleh',      // <-- PASTIKAN INI ADA
+        'ditandatangani_sekretaris_oleh',
+        'tanggal_ttd_sekretaris',
+        'ditandatangani_ketua_oleh',
         'tanggal_ttd_ketua',
+
+        // --- TAMBAHAN KOLOM BARU ---
+        'tanggal_surat',
+        'penerbit_surat',
+        'acc_ipnu_at',
+        'acc_ippnu_at',
+        'acc_sekretaris_ipnu_at',
+        'acc_sekretaris_ippnu_at',
     ];
 
     protected $casts = [
         'data_surat' => 'array',
+        'tanggal_surat' => 'date', // Cast ke format Date
         'tanggal_ttd' => 'datetime',
         'tanggal_kirim' => 'datetime',
+        'tanggal_validasi' => 'datetime',
+        'tanggal_ttd_sekretaris' => 'datetime',
+        'tanggal_ttd_ketua' => 'datetime',
+
+        // --- TAMBAHAN CASTS TANGGAL BARU ---
+        'acc_ipnu_at' => 'datetime',
+        'acc_ippnu_at' => 'datetime',
+        'acc_sekretaris_ipnu_at' => 'datetime',
+        'acc_sekretaris_ippnu_at' => 'datetime',
     ];
 
     public function organization()
@@ -89,14 +107,22 @@ class SuratKeluar extends Model
         $statuses = [
             'draft' => '<span class="badge badge-secondary">Draft</span>',
             'menunggu_validasi_wakil' => '<span class="badge badge-warning">Menunggu Validasi Wakil</span>',
-            'menunggu_ttd_ketua' => '<span class="badge badge-warning">Menunggu Tanda Tangan Ketua</span>',
-            'menunggu_ttd_sekretaris' => '<span class="badge badge-warning">Menunggu Tanda Tangan Sekretaris</span>',
-            'selesai' => '<span class="badge badge-success">Selesai</span>',
+            'menunggu_ttd_ketua' => '<span class="badge badge-primary">Menunggu Tanda Tangan Ketua</span>',
+            'menunggu_ttd_sekretaris' => '<span class="badge badge-info">Menunggu Tanda Tangan Sekretaris</span>',
+            'selesai' => '<span class="badge badge-success">Selesai & Sah</span>',
             'ditolak' => '<span class="badge badge-danger">Ditolak</span>',
         ];
 
         $status = $this->status_validasi ?? 'draft';
 
-        return $statuses[$status] ?? '<span class="badge badge-secondary">' . $status . '</span>';
+        return $statuses[$status] ?? '<span class="badge badge-dark">' . $status . '</span>';
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua perubahan kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah
+            ->setDescriptionForEvent(fn(string $eventName) => "Surat keluar telah di-{$eventName}");
     }
 }

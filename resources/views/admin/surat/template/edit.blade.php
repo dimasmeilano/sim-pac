@@ -4,14 +4,18 @@
 @section('page-title', 'Edit Template: ' . $template->nama)
 
 @section('content')
-    <div class="card">
+    <div class="card card-warning shadow-sm">
         <div class="card-header">
-            <h3 class="card-title">Form Edit Template Surat</h3>
+            <h3 class="card-title"><i class="fas fa-edit"></i> Form Edit Template Master</h3>
         </div>
+
         <form action="{{ route('surat.template.update', $template) }}" method="POST">
             @csrf
             @method('PUT')
+
             <div class="card-body">
+
+                <h5 class="text-warning font-weight-bold mb-3 border-bottom pb-2">Informasi Dasar</h5>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">
@@ -39,30 +43,30 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label>Lampiran</label>
+                            <label>Lampiran Bawaan</label>
                             <input type="text" name="lampiran" class="form-control"
                                 value="{{ old('lampiran', $template->lampiran) }}">
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label>Jenis Surat</label>
+                            <label>Kategori / Jenis Surat</label>
                             <select name="jenis_surat" class="form-control">
                                 <option value="umum"
-                                    {{ old('jenis_surat', $template->jenis_surat) == 'umum' ? 'selected' : '' }}>Umum
-                                </option>
+                                    {{ old('jenis_surat', $template->jenis_surat) == 'umum' ? 'selected' : '' }}>Umum (Teks
+                                    Bebas)</option>
                                 <option value="keputusan"
                                     {{ old('jenis_surat', $template->jenis_surat) == 'keputusan' ? 'selected' : '' }}>
-                                    Keputusan</option>
+                                    Keputusan (Dinamis)</option>
                                 <option value="pengesahan"
                                     {{ old('jenis_surat', $template->jenis_surat) == 'pengesahan' ? 'selected' : '' }}>
-                                    Pengesahan</option>
+                                    Pengesahan (Dinamis)</option>
                                 <option value="tugas"
                                     {{ old('jenis_surat', $template->jenis_surat) == 'tugas' ? 'selected' : '' }}>Tugas
-                                </option>
+                                    (Dinamis)</option>
                                 <option value="keterangan"
                                     {{ old('jenis_surat', $template->jenis_surat) == 'keterangan' ? 'selected' : '' }}>
-                                    Keterangan</option>
+                                    Keterangan (Dinamis)</option>
                                 <option value="undangan"
                                     {{ old('jenis_surat', $template->jenis_surat) == 'undangan' ? 'selected' : '' }}>
                                     Undangan</option>
@@ -71,7 +75,7 @@
                     </div>
                 </div>
 
-                <div class="row">
+                <div class="row mb-4">
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>Status</label>
@@ -86,50 +90,97 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
-                            <label>Urutan</label>
+                            <label>Urutan Tampil</label>
                             <input type="number" name="urutan" class="form-control"
                                 value="{{ old('urutan', $template->urutan ?? 0) }}">
                         </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Fields / Placeholder <span class="text-danger">*</span></label>
-                    <input type="text" name="fields" class="form-control"
-                        value="{{ old('fields', is_array($template->fields) ? implode(', ', $template->fields) : $template->fields) }}"
-                        placeholder="Contoh: nomor_surat, perihal, nama_ketua, nama_sekretaris">
-                    <small class="text-muted">Pisahkan dengan koma (,). Gunakan {nama_field} di konten template.</small>
+                <h5 class="text-success font-weight-bold mb-3 border-bottom pb-2">Konfigurasi Desain & Form</h5>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="form-group">
+                            <label>Konten Template (HTML) <span class="text-danger">*</span></label>
+                            <textarea name="konten" class="form-control text-monospace" rows="15" required>{{ old('konten', $template->konten) }}</textarea>
+                            <small class="text-muted mt-2 d-block">
+                                <i class="fas fa-info-circle"></i> Gunakan <strong>{nama_variabel}</strong> untuk
+                                placeholder yang akan diubah oleh sistem atau diisi oleh user.
+                            </small>
+                        </div>
+
+                        <div class="mt-3 p-3 border bg-light rounded d-none" id="preview-container">
+                            <label class="text-muted">Preview Konten (HTML Mentah):</label>
+                            <div id="preview-konten" style="max-height: 200px; overflow-y: auto; font-size: 14px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 bg-light p-3 rounded border">
+                        <div class="form-group mb-0">
+                            <label class="text-success">Aturan Form Input (JSON)</label>
+
+                            @php
+                                // Menampilkan data lama. Jika data di DB masih berupa array, ubah jadi teks JSON rapi.
+                                // Jika data di DB ternyata cuma teks koma biasa (sisa versi lama), kita tampilkan apa adanya (nantinya harus diedit manual jadi JSON).
+                                $fieldsData = $template->fields;
+                                $fieldsValue = is_array($fieldsData)
+                                    ? json_encode($fieldsData, JSON_PRETTY_PRINT)
+                                    : $fieldsData;
+                            @endphp
+
+                            <textarea name="fields" class="form-control text-monospace" rows="12"
+                                placeholder='{
+    "status_desa": "select:Ranting,Komisariat",
+    "nama_desa": "text",
+    "tanggal_pelaksanaan": "date"
+}'>{{ old('fields', $fieldsValue) }}</textarea>
+
+                            <div class="mt-3 text-sm text-muted">
+                                <strong>Panduan Tipe Input:</strong>
+                                <ul class="pl-3 mb-0 mt-1">
+                                    <li><code>text</code> : Kolom teks biasa</li>
+                                    <li><code>textarea</code> : Kotak teks besar</li>
+                                    <li><code>date</code> : Pemilih tanggal</li>
+                                    <li><code>select:A,B,C</code> : Dropdown otomatis</li>
+                                    <li><code>hidden</code> : Disembunyikan (otomatis sistem)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Konten Template <span class="text-danger">*</span></label>
-                    <textarea name="konten" class="form-control" rows="15" required>{{ old('konten', $template->konten) }}</textarea>
-                    <small class="text-muted">
-                        Gunakan {field_name} untuk placeholder yang akan diganti saat pembuatan surat.<br>
-                        Contoh: <code>Kepada Yth. {tujuan} di {tempat}</code>
-                    </small>
-                </div>
             </div>
-            <div class="card-footer">
-                <button type="submit" class="btn btn-primary">Update</button>
-                <a href="{{ route('surat.template.index') }}" class="btn btn-default">Batal</a>
+            <div class="card-footer bg-white border-top text-right">
+                <a href="{{ route('surat.template.index') }}" class="btn btn-secondary mr-2">
+                    <i class="fas fa-arrow-left"></i> Batal
+                </a>
+                <button type="submit" class="btn btn-warning font-weight-bold">
+                    <i class="fas fa-save"></i> Perbarui Template
+                </button>
             </div>
         </form>
     </div>
 
     @push('scripts')
         <script>
-            // Preview konten (opsional)
+            // Preview konten 
             function updatePreview() {
                 let konten = document.querySelector('[name="konten"]').value;
                 let previewDiv = document.getElementById('preview-konten');
-                if (previewDiv) {
-                    previewDiv.innerHTML = konten.replace(/\n/g, '<br>');
+                let container = document.getElementById('preview-container');
+
+                if (previewDiv && konten.trim() !== '') {
+                    container.classList.remove('d-none');
+                    // Tampilkan HTML apa adanya untuk melihat strukturnya (bukan render murni)
+                    previewDiv.innerText = konten;
+                } else if (container) {
+                    container.classList.add('d-none');
                 }
             }
 
             document.querySelector('[name="konten"]')?.addEventListener('input', updatePreview);
-            updatePreview();
+            updatePreview(); // Jalankan sekali saat load
         </script>
     @endpush
 @endsection

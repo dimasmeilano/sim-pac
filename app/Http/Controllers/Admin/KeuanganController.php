@@ -51,11 +51,9 @@ class KeuanganController extends Controller
             $query->whereYear('tanggal', $request->tahun);
         }
 
-        // Daftar transaksi (bisa lihat semua status)
         $transaksi = $query->orderBy('tanggal', 'desc')->paginate(10);
 
         // ========== HITUNG SALDO PER JENIS ORGANISASI ==========
-        // Gunakan raw query dengan kutip SATU ('')
         $saldoIpnu = Transaksi::where('jenis_organisasi', 'ipnu')
             ->where('status_validasi', 'disetujui')
             ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
@@ -71,9 +69,22 @@ class KeuanganController extends Controller
             ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
             ->value('total') ?? 0;
 
-        // Total saldo gabungan (semua transaksi yang disetujui)
-        $totalMasuk = Transaksi::where('status_validasi', 'disetujui')->where('jenis', 'masuk')->sum('nominal');
-        $totalKeluar = Transaksi::where('status_validasi', 'disetujui')->where('jenis', 'keluar')->sum('nominal');
+        // [FIX BUG 1] Total saldo gabungan disesuaikan dengan hak akses user
+        $saldoQuery = Transaksi::where('status_validasi', 'disetujui');
+
+        if (!$user->hasRole('super_admin')) {
+            if ($user->organization_id) {
+                $saldoQuery->where(function ($q) use ($user) {
+                    $q->where('jenis_organisasi', $user->organization->jenis_organisasi)
+                        ->orWhere('jenis_organisasi', 'bersama');
+                });
+            } else {
+                $saldoQuery->whereRaw('1 = 0');
+            }
+        }
+
+        $totalMasuk = (clone $saldoQuery)->where('jenis', 'masuk')->sum('nominal');
+        $totalKeluar = (clone $saldoQuery)->where('jenis', 'keluar')->sum('nominal');
         $saldoGabungan = $totalMasuk - $totalKeluar;
 
         $programKerja = ProgramKerja::all();
@@ -118,29 +129,30 @@ class KeuanganController extends Controller
         $userJenis = $user->organization?->jenis_organisasi ?? null;
         $selectedJenis = $request->jenis_organisasi;
 
-        // ========== VALIDASI AKSES JENIS ORGANISASI ==========
-        // Cek apakah user berhak membuat transaksi jenis ini
-        $isBendaharaIpnu = $user->hasRole('bendahara_pac') && $user->organization?->jenis_organisasi == 'ipnu';
-        $isBendaharaIppnu = $user->hasRole('bendahara_pac') && $user->organization?->jenis_organisasi == 'ippnu';
-        $isWakilIpnu = $user->hasRole('wakil_bendahara_pac') && $user->organization?->jenis_organisasi == 'ipnu';
-        $isWakilIppnu = $user->hasRole('wakil_bendahara_pac') && $user->organization?->jenis_organisasi == 'ippnu';
+        // [FIX BUG 2] Bypass validasi organisasi jika user adalah super_admin
+        if (!$user->hasRole('super_admin')) {
+            $isBendaharaIpnu = $user->hasRole('bendahara_pac') && $userJenis == 'ipnu';
+            $isBendaharaIppnu = $user->hasRole('bendahara_pac') && $userJenis == 'ippnu';
+            $isWakilIpnu = $user->hasRole('wakil_bendahara_pac') && $userJenis == 'ipnu';
+            $isWakilIppnu = $user->hasRole('wakil_bendahara_pac') && $userJenis == 'ippnu';
 
-        // Validasi akses berdasarkan jenis transaksi
-        if ($selectedJenis == 'ipnu' && !($isBendaharaIpnu || $isWakilIpnu)) {
-            return back()->with('error', 'Anda tidak dapat membuat transaksi IPNU');
+            if ($selectedJenis == 'ipnu' && !($isBendaharaIpnu || $isWakilIpnu)) {
+                return back()->with('error', 'Anda tidak dapat membuat transaksi IPNU');
+            }
+
+            if ($selectedJenis == 'ippnu' && !($isBendaharaIppnu || $isWakilIppnu)) {
+                return back()->with('error', 'Anda tidak dapat membuat transaksi IPPNU');
+            }
+
+            if ($selectedJenis == 'bersama' && !($isBendaharaIpnu || $isBendaharaIppnu || $isWakilIpnu || $isWakilIppnu)) {
+                return back()->with('error', 'Anda tidak dapat membuat transaksi bersama');
+            }
+
+            $isBendahara = $isBendaharaIpnu || $isBendaharaIppnu;
+        } else {
+            // Super admin dianggap setara bendahara (langsung ACC)
+            $isBendahara = true;
         }
-
-        if ($selectedJenis == 'ippnu' && !($isBendaharaIppnu || $isWakilIppnu)) {
-            return back()->with('error', 'Anda tidak dapat membuat transaksi IPPNU');
-        }
-
-        // Transaksi bersama: bisa dibuat oleh semua bendahara/wakil
-        if ($selectedJenis == 'bersama' && !($isBendaharaIpnu || $isBendaharaIppnu || $isWakilIpnu || $isWakilIppnu)) {
-            return back()->with('error', 'Anda tidak dapat membuat transaksi bersama');
-        }
-
-        // Tentukan status validasi
-        $isBendahara = $isBendaharaIpnu || $isBendaharaIppnu;
 
         if ($isBendahara) {
             $statusValidasi = 'disetujui';
@@ -153,12 +165,9 @@ class KeuanganController extends Controller
             $tanggalValidasi = null;
             $successMessage = 'Transaksi disimpan, menunggu validasi Bendahara';
         }
-        // =================================================
 
-        // Generate kode transaksi
         $kode = $this->generateKodeTransaksi($request->jenis);
 
-        // Upload bukti
         $buktiPath = null;
         if ($request->hasFile('bukti')) {
             $file = $request->file('bukti');
@@ -180,9 +189,9 @@ class KeuanganController extends Controller
             'keterangan' => $request->keterangan,
             'bukti_file' => $buktiPath,
             'created_by' => $user->id,
-            'status_validasi' => $statusValidasi,        // <-- TAMBAHKAN
-            'divalidasi_oleh' => $divalidasiOleh,        // <-- TAMBAHKAN
-            'tanggal_validasi' => $tanggalValidasi,      // <-- TAMBAHKAN
+            'status_validasi' => $statusValidasi,
+            'divalidasi_oleh' => $divalidasiOleh,
+            'tanggal_validasi' => $tanggalValidasi,
         ]);
 
         return redirect()->route('keuangan.index')->with('success', $successMessage);
@@ -200,6 +209,11 @@ class KeuanganController extends Controller
     {
         $user = auth()->user();
 
+        // [FIX BUG 3] Kunci Keuangan: Jangan izinkan edit jika sudah disetujui (kecuali Super Admin)
+        if ($keuangan->status_validasi == 'disetujui' && !$user->hasRole('super_admin')) {
+            return back()->with('error', 'Transaksi yang sudah disetujui tidak dapat diubah. Silakan hubungi Super Admin jika terjadi kesalahan.');
+        }
+
         $request->validate([
             'judul' => 'required|string|max:200',
             'jenis' => 'required|in:masuk,keluar',
@@ -212,7 +226,6 @@ class KeuanganController extends Controller
             'bukti' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048'
         ]);
 
-        // ========== CEK AKSES UPDATE ==========
         if (!$user->hasRole('super_admin')) {
             $userJenis = $user->organization?->jenis_organisasi ?? null;
 
@@ -223,9 +236,7 @@ class KeuanganController extends Controller
                 return back()->with('error', 'Anda tidak dapat mengedit transaksi IPPNU');
             }
         }
-        // ======================================
 
-        // Upload bukti baru
         if ($request->hasFile('bukti')) {
             if ($keuangan->bukti_file && Storage::disk('public')->exists($keuangan->bukti_file)) {
                 Storage::disk('public')->delete($keuangan->bukti_file);
@@ -236,7 +247,6 @@ class KeuanganController extends Controller
             $keuangan->bukti_file = $buktiPath;
         }
 
-        // Update data
         $keuangan->update([
             'program_kerja_id' => $request->program_kerja_id,
             'kegiatan_id' => $request->kegiatan_id,
@@ -248,18 +258,14 @@ class KeuanganController extends Controller
             'keterangan' => $request->keterangan,
         ]);
 
-        // ========== RESET STATUS JIKA DITOLAK DAN DIEDIT OLEH PEMBUAT ==========
         if ($keuangan->status_validasi == 'ditolak' && auth()->user()->id == $keuangan->created_by) {
             $keuangan->update([
                 'status_validasi' => 'menunggu',
                 'divalidasi_oleh' => null,
                 'tanggal_validasi' => null,
-                // Catatan penolakan tetap disimpan sebagai history (tidak dihapus)
-                // Bisa disimpan di kolom terpisah jika perlu
             ]);
             return redirect()->route('keuangan.index')->with('success', 'Transaksi berhasil diperbaiki dan diajukan ulang untuk validasi.');
         }
-        // =========================================================================
 
         return redirect()->route('keuangan.index')->with('success', 'Transaksi berhasil diupdate');
     }
@@ -268,17 +274,13 @@ class KeuanganController extends Controller
     {
         $user = auth()->user();
 
-        // Cek akses: user hanya bisa lihat transaksi dari jenis organisasinya
         if (!$user->hasRole('super_admin')) {
             $userJenis = $user->organization?->jenis_organisasi ?? null;
 
-            // Jika transaksi IPNU dan user bukan IPNU, tolak akses
-            if ($keuangan->jenis_organisasi == 'ipnu' && $userJenis != 'ipnu') {
+            if ($keuangan->jenis_organisasi == 'ipnu' && $userJenis != 'ipnu' && $keuangan->jenis_organisasi != 'bersama') {
                 abort(403, 'Anda tidak memiliki akses ke transaksi ini');
             }
-
-            // Jika transaksi IPPNU dan user bukan IPPNU, tolak akses
-            if ($keuangan->jenis_organisasi == 'ippnu' && $userJenis != 'ippnu') {
+            if ($keuangan->jenis_organisasi == 'ippnu' && $userJenis != 'ippnu' && $keuangan->jenis_organisasi != 'bersama') {
                 abort(403, 'Anda tidak memiliki akses ke transaksi ini');
             }
         }
@@ -288,10 +290,24 @@ class KeuanganController extends Controller
 
     public function destroy(Transaksi $keuangan)
     {
+        $user = auth()->user();
+
+        // [FIX BUG 3] Cek Hak Akses Delete
+        if (!$user->hasRole('super_admin') && $keuangan->created_by != $user->id) {
+            return back()->with('error', 'Anda hanya dapat menghapus transaksi yang Anda buat sendiri.');
+        }
+
+        // [FIX BUG 3] Kunci Keuangan: Jangan izinkan hapus jika sudah disetujui (kecuali Super Admin)
+        if ($keuangan->status_validasi == 'disetujui' && !$user->hasRole('super_admin')) {
+            return back()->with('error', 'Transaksi yang sudah disetujui tidak dapat dihapus.');
+        }
+
         if ($keuangan->bukti_file && Storage::disk('public')->exists($keuangan->bukti_file)) {
             Storage::disk('public')->delete($keuangan->bukti_file);
         }
+
         $keuangan->delete();
+
         return redirect()->route('keuangan.index')->with('success', 'Transaksi berhasil dihapus');
     }
 
@@ -301,7 +317,6 @@ class KeuanganController extends Controller
         $startDate = $request->start_date ?? date('Y-m-01');
         $endDate = $request->end_date ?? date('Y-m-t');
 
-        // Inisialisasi variabel
         $jenisOrganisasi = $request->jenis_organisasi ?? null;
 
         $query = Transaksi::whereBetween('tanggal', [$startDate, $endDate])
@@ -312,8 +327,12 @@ class KeuanganController extends Controller
                 $query->where('jenis_organisasi', $jenisOrganisasi);
             }
         } elseif ($user->organization_id) {
-            $query->where('jenis_organisasi', $user->organization->jenis_organisasi);
             $jenisOrganisasi = $user->organization->jenis_organisasi;
+            // [FIX BUG 4] Masukkan transaksi bersama ke dalam laporan
+            $query->where(function ($q) use ($jenisOrganisasi) {
+                $q->where('jenis_organisasi', $jenisOrganisasi)
+                    ->orWhere('jenis_organisasi', 'bersama');
+            });
         } else {
             $query->whereRaw('1 = 0');
         }
@@ -371,28 +390,27 @@ class KeuanganController extends Controller
 
     public function exportPdf(Request $request)
     {
-
         $user = auth()->user();
         $startDate = $request->start_date ?? date('Y-m-01');
         $endDate = $request->end_date ?? date('Y-m-t');
 
-        $query = Transaksi::whereBetween('tanggal', [$startDate, $endDate]);
+        $query = Transaksi::whereBetween('tanggal', [$startDate, $endDate])
+            ->where('status_validasi', 'disetujui'); // PDF hanya mencetak yang sudah disetujui
 
-        // ========== FILTER BERDASARKAN ROLE & ORGANISASI ==========
+        // [FIX BUG 4] Filter berdasarkan hak akses dan sertakan 'bersama'
         if ($user->hasRole('super_admin')) {
-            // Super admin: bisa filter berdasarkan jenis organisasi
             if ($request->filled('jenis_organisasi')) {
-                $orgIds = Organization::where('jenis_organisasi', $request->jenis_organisasi)->pluck('id');
-                $query->whereIn('organization_id', $orgIds);
+                $query->where('jenis_organisasi', $request->jenis_organisasi);
             }
         } elseif ($user->organization_id) {
-            // Bendahara/ketua: hanya lihat transaksi organisasinya sendiri
-            $query->where('organization_id', $user->organization_id);
+            $jenisOrganisasi = $user->organization->jenis_organisasi;
+            $query->where(function ($q) use ($jenisOrganisasi) {
+                $q->where('jenis_organisasi', $jenisOrganisasi)
+                    ->orWhere('jenis_organisasi', 'bersama');
+            });
         } else {
-            // User tidak punya organisasi dan bukan super admin
             $query->whereRaw('1 = 0');
         }
-        // ===========================================================
 
         $transaksi = $query->orderBy('tanggal', 'asc')->get();
 
@@ -400,7 +418,6 @@ class KeuanganController extends Controller
         $totalKeluar = $transaksi->where('jenis', 'keluar')->sum('nominal');
         $saldo = $totalMasuk - $totalKeluar;
 
-        // Ambil organisasi untuk kop surat
         if ($user->organization_id) {
             $organization = $user->organization;
         } else {
@@ -409,7 +426,6 @@ class KeuanganController extends Controller
                 ->first();
         }
 
-        // Generate PDF
         $pdf = PDF::loadView('admin.keuangan.laporan-pdf', compact(
             'transaksi',
             'totalMasuk',
@@ -432,23 +448,20 @@ class KeuanganController extends Controller
 
         $isBendahara = $isBendaharaIpnu || $isBendaharaIppnu;
 
-        if (!$isBendahara) {
-            return back()->with('error', 'Hanya Bendahara yang dapat memvalidasi transaksi');
+        if (!$isBendahara && !$user->hasRole('super_admin')) {
+            return back()->with('error', 'Hanya Bendahara atau Super Admin yang dapat memvalidasi transaksi');
         }
 
-        // Cek apakah user berhak memvalidasi jenis transaksi ini
-        if ($keuangan->jenis_organisasi == 'ipnu' && !$isBendaharaIpnu) {
-            return back()->with('error', 'Hanya Bendahara IPNU yang dapat memvalidasi transaksi IPNU');
+        if (!$user->hasRole('super_admin')) {
+            if ($keuangan->jenis_organisasi == 'ipnu' && !$isBendaharaIpnu) {
+                return back()->with('error', 'Hanya Bendahara IPNU yang dapat memvalidasi transaksi IPNU');
+            }
+
+            if ($keuangan->jenis_organisasi == 'ippnu' && !$isBendaharaIppnu) {
+                return back()->with('error', 'Hanya Bendahara IPPNU yang dapat memvalidasi transaksi IPPNU');
+            }
         }
 
-        if ($keuangan->jenis_organisasi == 'ippnu' && !$isBendaharaIppnu) {
-            return back()->with('error', 'Hanya Bendahara IPPNU yang dapat memvalidasi transaksi IPPNU');
-        }
-
-        // TRANSAKSI BERSAMA: bisa divalidasi oleh bendahara IPNU ATAU IPPNU
-        // (tidak ada pengecekan tambahan)
-
-        // Cek apakah transaksi sudah divalidasi
         if ($keuangan->status_validasi != 'menunggu') {
             return back()->with('error', 'Transaksi sudah divalidasi sebelumnya');
         }
