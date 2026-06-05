@@ -24,9 +24,36 @@ class KegiatanController extends Controller
 
     public function index()
     {
-        $kegiatan = Kegiatan::with('programKerja', 'organization')
-            ->orderBy('tgl_mulai', 'desc')
-            ->paginate(10);
+        // 1. Siapkan query dasar
+        $query = Kegiatan::with('programKerja', 'organization');
+        $user = auth()->user();
+
+        // 2. Jalankan filter jika yang login BUKAN Super Admin
+
+        if (!$user->hasRole('super_admin')) {
+            $query->where('organization_id', $user->organization_id);
+            if ($user->organization) {
+                $jenisOrgUser = $user->organization->jenis_organisasi;
+
+                // Saring kegiatan berdasarkan jenis_organisasi di tabel organizations
+                $query->whereHas('organization', function ($q) use ($jenisOrgUser) {
+                    if ($jenisOrgUser === 'ipnu') {
+                        $q->whereIn('jenis_organisasi', ['ipnu', 'bersama']);
+                    } elseif ($jenisOrgUser === 'ippnu') {
+                        $q->whereIn('jenis_organisasi', ['ippnu', 'bersama']);
+                    } else {
+                        $q->where('jenis_organisasi', 'bersama');
+                    }
+                });
+            } else {
+                // Antisipasi keamanan
+                $query->whereNull('id');
+            }
+        }
+
+        // 3. Eksekusi query
+        $kegiatan = $query->orderBy('tgl_mulai', 'desc')->paginate(10);
+
         return view('admin.kegiatan.index', compact('kegiatan'));
     }
 
@@ -72,6 +99,9 @@ class KegiatanController extends Controller
 
     public function show(Kegiatan $kegiatan)
     {
+        if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah kegiatan milik organisasi lain.');
+        }
         $kegiatan->load('programKerja', 'absensi.user');
 
         $hadir = $kegiatan->absensi->where('status', 'hadir')->count();
@@ -85,6 +115,9 @@ class KegiatanController extends Controller
 
     public function edit(Kegiatan $kegiatan)
     {
+        if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah kegiatan milik organisasi lain.');
+        }
         $programKerja = ProgramKerja::where('status', 'active')->get();
         $users = User::orderBy('name')->get();
         return view('admin.kegiatan.edit', compact('kegiatan', 'programKerja', 'users'));
@@ -262,12 +295,13 @@ class KegiatanController extends Controller
         // Cek apakah sudah absen dari IP yang sama
         $ipAddress = $request->ip();
         $sudahAbsen = Absensi::where('kegiatan_id', $kegiatan->id)
-            ->where('ip_address', $ipAddress)
+            ->where('nama_peserta', $request->nama)
+            ->where('no_hp_peserta', $request->no_hp)
             ->exists();
 
         if ($sudahAbsen) {
             return redirect()->route('absensi.form', $kegiatan)
-                ->with('error', 'Anda sudah melakukan absensi dari perangkat ini');
+                ->with('error', 'Nama dan Nomor HP ini sudah tercatat hadir di sistem.');
         }
 
         // Simpan ke tabel absensi (user_id = NULL karena publik)
@@ -280,7 +314,6 @@ class KegiatanController extends Controller
             'waktu_absen' => now(),
             'status' => $request->status,
             'keterangan' => 'Absen publik',
-            'ip_address' => $ipAddress,
         ]);
 
         return redirect()->route('absensi.form', $kegiatan)

@@ -128,10 +128,10 @@
         $isCreator = $suratKeluar->created_by == $user->id;
         $jenisOrg = strtolower($user->organization->jenis_organisasi ?? 'ipnu');
 
-        // Cek Role
-        $isWasek = $user->hasRole('wakil_sekretaris') || str_contains(strtolower($user->role ?? ''), 'wasek');
-        $isSekretaris = $user->hasRole('sekretaris_pac') || str_contains(strtolower($user->role ?? ''), 'sekretaris');
-        $isKetua = $user->hasRole('ketua_pac') || str_contains(strtolower($user->role ?? ''), 'ketua');
+        // Cek Role menggunakan Spatie bawaan (Mendukung Ranting & PAC)
+        $isWasek = $user->hasAnyRole(['wakil_sekretaris_pac', 'wakil_sekretaris_ranting', 'wakil_sekretaris']);
+        $isSekretaris = $user->hasAnyRole(['sekretaris_pac', 'sekretaris_ranting']);
+        $isKetua = $user->hasAnyRole(['ketua_pac', 'ketua_ranting']);
 
         // Cek Status ACC Surat Bersama
         $sudahAccSekretarisBersama =

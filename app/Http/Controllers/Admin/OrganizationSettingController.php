@@ -102,33 +102,4 @@ class OrganizationSettingController extends Controller
             }
         }
     }
-
-    public function profileUpdate(Request $request)
-    {
-        $user = auth()->user();
-
-        $request->validate([
-            'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'no_hp' => 'nullable|string|max:15',
-            'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-        ]);
-
-        if ($request->hasFile('foto')) {
-            if ($user->foto && Storage::disk('public')->exists($user->foto)) {
-                Storage::disk('public')->delete($user->foto);
-            }
-            $foto = $request->file('foto');
-            $filename = 'foto_' . $user->id . '_' . time() . '.' . $foto->getClientOriginalExtension();
-            $fotoPath = $foto->storeAs('profile/foto', $filename, 'public');
-            $user->foto = $fotoPath;
-        }
-
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->no_hp = $request->no_hp;
-        $user->save();
-
-        return redirect()->route('profile')->with('success', 'Profil berhasil diupdate');
-    }
 }

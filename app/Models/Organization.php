@@ -20,6 +20,7 @@ class Organization extends Model
         'parent_id',
         'alamat',
         'kontak',
+        'stempel',
         'email',
         'website',
         'logo',
@@ -44,6 +45,10 @@ class Organization extends Model
         'kop_surat_bersama',
         'ttd_ketua',
         'ttd_sekretaris',
+    ];
+
+    protected $casts = [
+        'tgl_berakhir_sk' => 'date',
     ];
 
     // Relasi

@@ -46,6 +46,9 @@ class RolePermissionSeeder extends Seeder
             'edit_surat',
             'delete_surat',
             'cetak_surat',
+            'manage_kegiatan',
+            'view_kegiatan',
+            'manage_progja',
         ];
 
         foreach ($permissions as $permission) {

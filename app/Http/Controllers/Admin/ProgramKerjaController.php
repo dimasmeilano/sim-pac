@@ -20,12 +20,44 @@ class ProgramKerjaController extends Controller
 
     public function index()
     {
+        // 1. Update status otomatis (tetap pertahankan kode asli Anda)
         \App\Models\ProgramKerja::where('status', 'active')
             ->where('tgl_selesai', '<', now()->toDateString())
             ->update(['status' => 'completed']);
-        $programKerja = ProgramKerja::with('organization', 'tugas')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+
+        // 2. Siapkan query dasar
+        $query = \App\Models\ProgramKerja::with('organization', 'tugas');
+        $user = auth()->user();
+
+        // 3. Jalankan filter jika yang login BUKAN Super Admin
+        if (!$user->hasRole('super_admin')) {
+
+            // Eager load relasi organisasi milik user untuk memastikan datanya ada
+            if ($user->organization) {
+                $jenisOrgUser = $user->organization->jenis_organisasi; // Isinya: 'ipnu' atau 'ippnu' atau 'bersama'
+
+                // Saring program kerja berdasarkan kolom 'jenis_organisasi' di tabel induknya (organizations)
+                $query->whereHas('organization', function ($q) use ($jenisOrgUser) {
+                    if ($jenisOrgUser === 'ipnu') {
+                        // Sekretaris IPNU hanya bisa melihat proker IPNU dan proker Bersama
+                        $q->whereIn('jenis_organisasi', ['ipnu', 'bersama']);
+                    } elseif ($jenisOrgUser === 'ippnu') {
+                        // Sekretaris IPPNU hanya bisa melihat proker IPPNU dan proker Bersama
+                        $q->whereIn('jenis_organisasi', ['ippnu', 'bersama']);
+                    } else {
+                        // Jika user berasal dari organisasi 'bersama' (PAC global)
+                        $q->where('jenis_organisasi', 'bersama');
+                    }
+                });
+            } else {
+                // Antisipasi keamanan: jika user tidak punya organisasi, kunci agar tidak bisa melihat data apapun
+                $query->whereNull('id');
+            }
+        }
+
+        // 4. Eksekusi query dengan urutan terbaru
+        $programKerja = $query->orderBy('created_at', 'desc')->paginate(10);
+
         return view('admin.progja.index', compact('programKerja'));
     }
 

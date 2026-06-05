@@ -38,10 +38,9 @@
         </div>
 
         <div class="col-md-8">
-            <!-- Form Edit Profil -->
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Edit Profil</h3>
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title"><i class="fas fa-user-edit mr-1"></i> Edit Profil</h3>
                 </div>
                 <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data">
                     @csrf
@@ -74,7 +73,51 @@
                 </form>
             </div>
 
-            <!-- ========== TANDA TANGAN DIGITAL ========== -->
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="card-title"><i class="fas fa-lock mr-1"></i> Ubah Password</h3>
+                </div>
+                <form action="{{ route('profile.password') }}" method="POST">
+                    @csrf
+                    @method('PUT')
+                    <div class="card-body">
+                        @if (session('success_password'))
+                            <div class="alert alert-success alert-dismissible fade show">
+                                <i class="fas fa-check-circle mr-1"></i> {{ session('success_password') }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        @endif
+
+                        <div class="form-group">
+                            <label>Password Saat Ini</label>
+                            <input type="password" name="current_password"
+                                class="form-control @error('current_password') is-invalid @enderror" required>
+                            @error('current_password')
+                                <span class="text-danger small">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label>Password Baru</label>
+                            <input type="password" name="password"
+                                class="form-control @error('password') is-invalid @enderror" required>
+                            <small class="text-muted">Minimal 8 karakter.</small>
+                            @error('password')
+                                <span class="text-danger small">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="form-group">
+                            <label>Konfirmasi Password Baru</label>
+                            <input type="password" name="password_confirmation" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="card-footer text-right">
+                        <button type="submit" class="btn btn-danger">Update Password</button>
+                    </div>
+                </form>
+            </div>
+
             @php
                 $org = Auth::user()->organization;
                 $isKetua = $org && $org->ketua_id == Auth::id();
@@ -85,27 +128,28 @@
                 <div class="card">
                     <div class="card-header bg-info text-white">
                         <h3 class="card-title">
-                            <i class="fas fa-signature"></i> Tanda Tangan Digital
+                            <i class="fas fa-signature mr-1"></i> Tanda Tangan Digital & Stempel
                         </h3>
                     </div>
                     <div class="card-body">
                         @if ($isKetua)
                             <div class="row">
                                 <div class="col-md-6">
-                                    <h5>Tanda Tangan Ketua</h5>
+                                    <h5 class="font-weight-bold">Tanda Tangan Ketua</h5>
                                     <canvas id="signatureCanvasKetua" width="350" height="150"
                                         style="border:1px solid #ccc; background:white;"></canvas>
                                     <div class="mt-2">
-                                        <button class="btn btn-danger btn-sm"
-                                            onclick="clearSignature('ketua')">Clear</button>
-                                        <button class="btn btn-success btn-sm" onclick="saveSignature('ketua')">Simpan TTD
+                                        <button class="btn btn-danger btn-sm" onclick="clearSignature('ketua')"><i
+                                                class="fas fa-eraser"></i> Clear</button>
+                                        <button class="btn btn-success btn-sm" onclick="saveSignature('ketua')"><i
+                                                class="fas fa-save"></i> Simpan TTD
                                             Ketua</button>
                                     </div>
                                     @if ($org->ttd_ketua)
-                                        <div class="mt-3">
-                                            <p>TTD Saat Ini:</p>
+                                        <div class="mt-3 bg-light p-2 rounded text-center">
+                                            <p class="mb-1 text-sm text-muted">TTD Saat Ini:</p>
                                             <img src="{{ asset('storage/' . $org->ttd_ketua) }}"
-                                                style="max-height: 60px; border:1px solid #ccc;">
+                                                style="max-height: 60px; border:1px solid #ccc; background:white;">
                                         </div>
                                     @endif
                                 </div>
@@ -115,35 +159,39 @@
                         @if ($isSekretaris)
                             <div class="row mt-4">
                                 <div class="col-md-6">
-                                    <h5>Tanda Tangan Sekretaris</h5>
+                                    <h5 class="font-weight-bold">Tanda Tangan Sekretaris</h5>
                                     <canvas id="signatureCanvasSekretaris" width="350" height="150"
                                         style="border:1px solid #ccc; background:white;"></canvas>
                                     <div class="mt-2">
-                                        <button class="btn btn-danger btn-sm"
-                                            onclick="clearSignature('sekretaris')">Clear</button>
-                                        <button class="btn btn-success btn-sm" onclick="saveSignature('sekretaris')">Simpan
+                                        <button class="btn btn-danger btn-sm" onclick="clearSignature('sekretaris')"><i
+                                                class="fas fa-eraser"></i> Clear</button>
+                                        <button class="btn btn-success btn-sm" onclick="saveSignature('sekretaris')"><i
+                                                class="fas fa-save"></i> Simpan
                                             TTD Sekretaris</button>
                                     </div>
                                     @if ($org->ttd_sekretaris)
-                                        <div class="mt-3">
-                                            <p>TTD Saat Ini:</p>
+                                        <div class="mt-3 bg-light p-2 rounded text-center">
+                                            <p class="mb-1 text-sm text-muted">TTD Saat Ini:</p>
                                             <img src="{{ asset('storage/' . $org->ttd_sekretaris) }}"
-                                                style="max-height: 60px; border:1px solid #ccc;">
+                                                style="max-height: 60px; border:1px solid #ccc; background:white;">
                                         </div>
                                     @endif
                                 </div>
                             </div>
                         @endif
+
                         @if ($isKetua)
-                            <div class="row mt-4">
+                            <hr class="mt-4">
+                            <div class="row mt-3">
                                 <div class="col-md-6">
-                                    <h5>Stempel Organisasi</h5>
-                                    <input type="file" name="stempel" id="stempelInput" class="form-control"
-                                        accept="image/*">
-                                    <button class="btn btn-primary btn-sm mt-2" onclick="uploadStempel()">Upload
+                                    <h5 class="font-weight-bold">Stempel Organisasi (.png)</h5>
+                                    <input type="file" name="stempel" id="stempelInput"
+                                        class="form-control-file mt-2" accept="image/png">
+                                    <button class="btn btn-primary btn-sm mt-3" onclick="uploadStempel()"><i
+                                            class="fas fa-upload"></i> Upload
                                         Stempel</button>
                                     @if ($org->stempel)
-                                        <div class="mt-2">
+                                        <div class="mt-3 bg-light p-2 rounded text-center">
                                             <img src="{{ asset('storage/' . $org->stempel) }}" style="max-height: 80px;">
                                         </div>
                                     @endif

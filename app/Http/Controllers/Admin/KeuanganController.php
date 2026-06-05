@@ -53,38 +53,28 @@ class KeuanganController extends Controller
 
         $transaksi = $query->orderBy('tanggal', 'desc')->paginate(10);
 
-        // ========== HITUNG SALDO PER JENIS ORGANISASI ==========
-        $saldoIpnu = Transaksi::where('jenis_organisasi', 'ipnu')
-            ->where('status_validasi', 'disetujui')
-            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
-            ->value('total') ?? 0;
+        // ========== HITUNG SALDO PER JENIS ORGANISASI (DIPERBAIKI) ==========
+        $baseSaldoQuery = Transaksi::where('status_validasi', 'disetujui');
 
-        $saldoIppnu = Transaksi::where('jenis_organisasi', 'ippnu')
-            ->where('status_validasi', 'disetujui')
-            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
-            ->value('total') ?? 0;
-
-        $saldoBersama = Transaksi::where('jenis_organisasi', 'bersama')
-            ->where('status_validasi', 'disetujui')
-            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
-            ->value('total') ?? 0;
-
-        // [FIX BUG 1] Total saldo gabungan disesuaikan dengan hak akses user
-        $saldoQuery = Transaksi::where('status_validasi', 'disetujui');
-
+        // Gembok Multi-Tenant untuk Saldo
         if (!$user->hasRole('super_admin')) {
-            if ($user->organization_id) {
-                $saldoQuery->where(function ($q) use ($user) {
-                    $q->where('jenis_organisasi', $user->organization->jenis_organisasi)
-                        ->orWhere('jenis_organisasi', 'bersama');
-                });
-            } else {
-                $saldoQuery->whereRaw('1 = 0');
-            }
+            $baseSaldoQuery->where('organization_id', $user->organization_id);
         }
 
-        $totalMasuk = (clone $saldoQuery)->where('jenis', 'masuk')->sum('nominal');
-        $totalKeluar = (clone $saldoQuery)->where('jenis', 'keluar')->sum('nominal');
+        $saldoIpnu = (clone $baseSaldoQuery)->where('jenis_organisasi', 'ipnu')
+            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
+            ->value('total') ?? 0;
+
+        $saldoIppnu = (clone $baseSaldoQuery)->where('jenis_organisasi', 'ippnu')
+            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
+            ->value('total') ?? 0;
+
+        $saldoBersama = (clone $baseSaldoQuery)->where('jenis_organisasi', 'bersama')
+            ->select(DB::raw("SUM(CASE WHEN jenis = 'masuk' THEN nominal ELSE -nominal END) as total"))
+            ->value('total') ?? 0;
+
+        $totalMasuk = (clone $baseSaldoQuery)->where('jenis', 'masuk')->sum('nominal');
+        $totalKeluar = (clone $baseSaldoQuery)->where('jenis', 'keluar')->sum('nominal');
         $saldoGabungan = $totalMasuk - $totalKeluar;
 
         $programKerja = ProgramKerja::all();
@@ -131,10 +121,10 @@ class KeuanganController extends Controller
 
         // [FIX BUG 2] Bypass validasi organisasi jika user adalah super_admin
         if (!$user->hasRole('super_admin')) {
-            $isBendaharaIpnu = $user->hasRole('bendahara_pac') && $userJenis == 'ipnu';
-            $isBendaharaIppnu = $user->hasRole('bendahara_pac') && $userJenis == 'ippnu';
-            $isWakilIpnu = $user->hasRole('wakil_bendahara_pac') && $userJenis == 'ipnu';
-            $isWakilIppnu = $user->hasRole('wakil_bendahara_pac') && $userJenis == 'ippnu';
+            $isBendaharaIpnu = $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) && $userJenis == 'ipnu';
+            $isBendaharaIppnu = $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) && $userJenis == 'ippnu';
+            $isWakilIpnu = $user->hasAnyRole(['wakil_bendahara_pac', 'wakil_bendahara_ranting']) && $userJenis == 'ipnu';
+            $isWakilIppnu = $user->hasAnyRole(['wakil_bendahara_pac', 'wakil_bendahara_ranting']) && $userJenis == 'ippnu';
 
             if ($selectedJenis == 'ipnu' && !($isBendaharaIpnu || $isWakilIpnu)) {
                 return back()->with('error', 'Anda tidak dapat membuat transaksi IPNU');
@@ -274,6 +264,9 @@ class KeuanganController extends Controller
     {
         $user = auth()->user();
 
+        if (!$user->hasRole('super_admin') && $keuangan->organization_id != $user->organization_id) {
+            abort(403, 'Akses Ditolak! Transaksi ini milik organisasi lain.');
+        }
         if (!$user->hasRole('super_admin')) {
             $userJenis = $user->organization?->jenis_organisasi ?? null;
 
@@ -319,7 +312,8 @@ class KeuanganController extends Controller
 
         $jenisOrganisasi = $request->jenis_organisasi ?? null;
 
-        $query = Transaksi::whereBetween('tanggal', [$startDate, $endDate])
+        $query = Transaksi::with('programKerja')
+            ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('status_validasi', 'disetujui');
 
         if ($user->hasRole('super_admin')) {
@@ -394,7 +388,8 @@ class KeuanganController extends Controller
         $startDate = $request->start_date ?? date('Y-m-01');
         $endDate = $request->end_date ?? date('Y-m-t');
 
-        $query = Transaksi::whereBetween('tanggal', [$startDate, $endDate])
+        $query = Transaksi::with('programKerja')
+            ->whereBetween('tanggal', [$startDate, $endDate])
             ->where('status_validasi', 'disetujui'); // PDF hanya mencetak yang sudah disetujui
 
         // [FIX BUG 4] Filter berdasarkan hak akses dan sertakan 'bersama'
@@ -443,8 +438,10 @@ class KeuanganController extends Controller
     {
         $user = auth()->user();
 
-        $isBendaharaIpnu = $user->hasRole('bendahara_pac') && $user->organization?->jenis_organisasi == 'ipnu';
-        $isBendaharaIppnu = $user->hasRole('bendahara_pac') && $user->organization?->jenis_organisasi == 'ippnu';
+        $isBendaharaIpnu = $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) && $user->organization?->jenis_organisasi == 'ipnu';
+        $isBendaharaIppnu = $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) && $user->organization?->jenis_organisasi == 'ippnu';
+        $isWakilIpnu = $user->hasAnyRole(['wakil_bendahara_pac', 'wakil_bendahara_ranting']) && $user->organization?->jenis_organisasi == 'ipnu';
+        $isWakilIppnu = $user->hasAnyRole(['wakil_bendahara_pac', 'wakil_bendahara_ranting']) && $user->organization?->jenis_organisasi == 'ippnu';
 
         $isBendahara = $isBendaharaIpnu || $isBendaharaIppnu;
 

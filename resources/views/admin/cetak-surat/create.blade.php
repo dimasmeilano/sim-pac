@@ -156,6 +156,51 @@
                                 PPAO otomatis</small>
                         </div>
 
+                        {{-- ========================================== --}}
+                        {{-- MULAI INJEKSI SAKLAR TUJUAN --}}
+                        {{-- ========================================== --}}
+                        <div class="form-group border-top pt-3 mt-3">
+                            <label>Kategori Tujuan Pengiriman</label>
+                            <div class="custom-control custom-radio mb-1">
+                                <input class="custom-control-input" type="radio" id="tujuan_eksternal"
+                                    name="kategori_tujuan" value="eksternal" checked>
+                                <label for="tujuan_eksternal" class="custom-control-label font-weight-normal">Teks Manual
+                                    (Untuk SK, Surat Tugas, Individu)</label>
+                            </div>
+                            <div class="custom-control custom-radio">
+                                <input class="custom-control-input" type="radio" id="tujuan_internal"
+                                    name="kategori_tujuan" value="internal">
+                                <label for="tujuan_internal" class="custom-control-label font-weight-normal">Internal
+                                    Organisasi (Kirim ke Dasbor Ranting/PAC)</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="grup_eksternal">
+                            <label>Tujuan Surat <span class="text-muted">(Opsional)</span></label>
+                            <textarea name="tujuan" id="tujuan_teks" class="form-control" rows="2"
+                                placeholder="Contoh: Yth. Kepala Desa / Terlampir"></textarea>
+                            <small class="text-muted">Bisa dikosongkan jika ini adalah Surat Keputusan (SK) atau Surat
+                                Tugas.</small>
+                        </div>
+
+                        <div class="form-group" id="grup_internal" style="display: none;">
+                            <label>Pilih Ranting / PAC Tujuan <span class="text-danger">*</span></label>
+                            <select name="tujuan_organization_id" id="tujuan_organization_id"
+                                class="form-control select2" style="width: 100%;">
+                                <option value="">-- Pilih Organisasi --</option>
+                                @if (isset($organizations))
+                                    @foreach ($organizations as $org)
+                                        <option value="{{ $org->id }}">{{ $org->name }}
+                                            ({{ strtoupper($org->type) }})
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                            <small class="text-success d-block mt-1"><i class="fas fa-info-circle"></i> Tembus otomatis ke
+                                dasbor penerima saat disahkan.</small>
+                        </div>
+                        {{-- ========================================== --}}
+
                         @if (auth()->user()->hasRole('super_admin') && !empty($organizations))
                             <div class="form-group border-top pt-3 mt-3">
                                 <label class="text-danger"><i class="fas fa-user-shield"></i> Override Organisasi (Super
@@ -221,6 +266,34 @@
             // Pastikan meta tag CSRF ada di layout.adminlte Anda!
             const templateKonten = `{!! addslashes($template->konten ?? '') !!}`;
             const fields = @json(array_keys($template->fields ?? []));
+
+            // -- SAKLAR TUJUAN INTERNAL/EKSTERNAL --
+            const radioEksternal = document.getElementById('tujuan_eksternal');
+            const radioInternal = document.getElementById('tujuan_internal');
+            const grupEksternal = document.getElementById('grup_eksternal');
+            const grupInternal = document.getElementById('grup_internal');
+            const inputTeks = document.getElementById('tujuan_teks');
+            const inputOrg = document.getElementById('tujuan_organization_id');
+
+            function toggleTujuan() {
+                if (radioInternal.checked) {
+                    grupInternal.style.display = 'block';
+                    grupEksternal.style.display = 'none';
+                    // Jika internal, wajib pilih organisasi
+                    inputOrg.setAttribute('required', 'required');
+                    inputTeks.removeAttribute('required');
+                } else {
+                    grupInternal.style.display = 'none';
+                    grupEksternal.style.display = 'block';
+                    // Jika teks manual, TIDAK WAJIB (Bisa kosong untuk SK / Surat Tugas)
+                    inputTeks.removeAttribute('required');
+                    inputOrg.removeAttribute('required');
+                }
+            }
+
+            if (radioEksternal) radioEksternal.addEventListener('change', toggleTujuan);
+            if (radioInternal) radioInternal.addEventListener('change', toggleTujuan);
+            toggleTujuan(); // Eksekusi saat load
 
             // -- GENERATE NOMOR --
             document.getElementById('generate_nomor').addEventListener('click', function() {

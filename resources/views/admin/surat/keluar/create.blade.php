@@ -70,7 +70,6 @@
 
                         <div class="form-group">
                             <label>Klasifikasi Surat <span class="text-danger">*</span></label>
-                            <!-- ID sudah dipastikan 'klasifikasi_surat' -->
                             <select name="klasifikasi_surat" id="klasifikasi_surat" class="form-control" required>
                                 <option value="A">A - Surat untuk lingkungan internal</option>
                                 <option value="B">B - Surat untuk pihak eksternal</option>
@@ -80,7 +79,6 @@
 
                         <div class="form-group">
                             <label>Nomor Surat</label>
-                            <!-- Pastikan value awal kosong jika ingin AJAX langsung memproses dari klasifikasi A -->
                             <input type="text" name="nomor_surat" id="nomorSuratInput"
                                 class="form-control bg-light font-weight-bold" value="{{ $nomorSuratOtomatis ?? '' }}"
                                 readonly>
@@ -96,12 +94,47 @@
                             <input type="text" name="perihal" class="form-control" required placeholder="Undangan Rapat">
                         </div>
 
-                        <div class="form-group">
-                            <label>Tujuan Surat <span class="text-danger">*</span></label>
-                            <textarea name="tujuan_surat" class="form-control" rows="3" required placeholder="Yth. Ketua ..."></textarea>
+                        {{-- ========================================== --}}
+                        {{-- MULAI INJEKSI SAKLAR TUJUAN INTERNAL/EKSTERNAL --}}
+                        {{-- ========================================== --}}
+                        <div class="form-group border-top pt-3 mt-3">
+                            <label>Kategori Tujuan <span class="text-danger">*</span></label>
+                            <div class="custom-control custom-radio mb-1">
+                                <input class="custom-control-input" type="radio" id="tujuan_eksternal"
+                                    name="kategori_tujuan" value="eksternal" checked>
+                                <label for="tujuan_eksternal" class="custom-control-label font-weight-normal">Eksternal
+                                    (Teks Manual)</label>
+                            </div>
+                            <div class="custom-control custom-radio">
+                                <input class="custom-control-input" type="radio" id="tujuan_internal"
+                                    name="kategori_tujuan" value="internal">
+                                <label for="tujuan_internal" class="custom-control-label font-weight-normal">Internal (Kirim
+                                    ke Ranting/PAC)</label>
+                            </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="grup_eksternal">
+                            <label>Tujuan Surat <span class="text-danger">*</span></label>
+                            <textarea name="tujuan_surat" id="tujuan_teks" class="form-control" rows="3" required
+                                placeholder="Yth. Ketua ..."></textarea>
+                        </div>
+
+                        <div class="form-group" id="grup_internal" style="display: none;">
+                            <label>Pilih Ranting / PAC Tujuan <span class="text-danger">*</span></label>
+                            <select name="tujuan_organization_id" id="tujuan_organization_id" class="form-control">
+                                <option value="">-- Pilih Organisasi --</option>
+                                @if (isset($organizations))
+                                    @foreach ($organizations as $org)
+                                        <option value="{{ $org->id }}">{{ $org->nama }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                            <small class="text-success d-block mt-1"><i class="fas fa-info-circle"></i> Tembus otomatis ke
+                                dasbor penerima.</small>
+                        </div>
+                        {{-- ========================================== --}}
+
+                        <div class="form-group border-top pt-3 mt-3">
                             <label>Tanggal Surat <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_surat" class="form-control" value="{{ date('Y-m-d') }}"
                                 required>
@@ -123,7 +156,6 @@
     <script src="https://cdn.tiny.cloud/1/790oy87uninpb887jjodfajw2ivcmbi6dq4vzah5gguz6igm/tinymce/6/tinymce.min.js"
         referrerpolicy="origin"></script>
     <script>
-        // 1. Fungsi Global
         function updateFormDisplay() {
             const selectPenerbit = document.getElementById('penerbit_surat');
             const formPanitia = document.getElementById('form-panitia');
@@ -135,7 +167,6 @@
             } else {
                 if (formPanitia) formPanitia.style.display = 'none';
 
-                // Bersihkan semua inputan panitia jika batal memilih panitia
                 let inputKegiatan = document.querySelector('input[name="nama_kegiatan_panitia"]');
                 let inputKetua = document.querySelector('input[name="nama_ketua_panitia"]');
                 let inputSekretaris = document.querySelector('input[name="nama_sekretaris_panitia"]');
@@ -143,8 +174,6 @@
                 if (inputKetua) inputKetua.value = '';
                 if (inputSekretaris) inputSekretaris.value = '';
             }
-
-            // Trigger update nomor
             updateNomorOtomatis();
         }
 
@@ -153,22 +182,15 @@
             const indeksSurat = document.getElementById('klasifikasi_surat');
             const inputNomor = document.getElementById('nomorSuratInput');
 
-            if (!indeksSurat || !selectPenerbit || !inputNomor) {
-                console.warn("Ada elemen form yang ID-nya salah/tidak ditemukan!");
-                return;
-            }
+            if (!indeksSurat || !selectPenerbit || !inputNomor) return;
 
             let kodeIndeks = indeksSurat.value;
             let penerbit = selectPenerbit.value;
-
-            // Memunculkan status loading...
             inputNomor.value = "Memuat nomor...";
 
             fetch(`{{ route('surat.keluar.nomor-otomatis') }}?kode_indeks=${kodeIndeks}&penerbit=${penerbit}`)
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Server merespons dengan error ' + response.status);
-                    }
+                    if (!response.ok) throw new Error('Server merespons dengan error ' + response.status);
                     return response.json();
                 })
                 .then(data => {
@@ -181,13 +203,11 @@
                 .catch(error => {
                     console.error('Error AJAX Nomor:', error);
                     inputNomor.value = "Terjadi Error Backend (Cek F12)";
-                    alert(
-                        "Gagal mengambil nomor otomatis! Silakan tekan F12 lalu buka tab Console untuk melihat penyebabnya.");
                 });
         }
 
-        // 2. Inisialisasi DOM
         document.addEventListener('DOMContentLoaded', function() {
+            // Inisialisasi TinyMCE
             tinymce.init({
                 selector: '#tinyMceEditor',
                 height: 650,
@@ -197,16 +217,38 @@
                 content_style: 'body { font-family: Arial, sans-serif; font-size: 14px; text-align: justify; line-height: 1.6; }'
             });
 
+            // Listener Nomor Surat
             const selectPenerbit = document.getElementById('penerbit_surat');
-            // PERBAIKAN: Ubah id listener menjadi 'klasifikasi_surat'
             const indeksSurat = document.getElementById('klasifikasi_surat');
-
             if (selectPenerbit) selectPenerbit.addEventListener('change', updateFormDisplay);
-            // Sekarang dropdown A/B/C akan selalu didengar perubahannya oleh sistem
             if (indeksSurat) indeksSurat.addEventListener('change', updateNomorOtomatis);
-
-            // Sinkronisasi data saat halaman baru saja dimuat
             updateFormDisplay();
+
+            // SAKLAR TUJUAN INTERNAL / EKSTERNAL
+            const radioEksternal = document.getElementById('tujuan_eksternal');
+            const radioInternal = document.getElementById('tujuan_internal');
+            const grupEksternal = document.getElementById('grup_eksternal');
+            const grupInternal = document.getElementById('grup_internal');
+            const inputTeks = document.getElementById('tujuan_teks');
+            const inputOrg = document.getElementById('tujuan_organization_id');
+
+            function toggleTujuan() {
+                if (radioInternal.checked) {
+                    grupInternal.style.display = 'block';
+                    grupEksternal.style.display = 'none';
+                    inputOrg.setAttribute('required', 'required');
+                    inputTeks.removeAttribute('required');
+                } else {
+                    grupInternal.style.display = 'none';
+                    grupEksternal.style.display = 'block';
+                    inputTeks.setAttribute('required', 'required');
+                    inputOrg.removeAttribute('required');
+                }
+            }
+
+            if (radioEksternal) radioEksternal.addEventListener('change', toggleTujuan);
+            if (radioInternal) radioInternal.addEventListener('change', toggleTujuan);
+            toggleTujuan(); // Eksekusi saat load
         });
     </script>
 @endpush

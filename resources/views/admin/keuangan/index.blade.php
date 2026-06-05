@@ -163,10 +163,10 @@
                                         $user = auth()->user();
                                         $isSuperAdmin = $user->hasRole('super_admin');
                                         $isBendaharaIpnu =
-                                            $user->hasRole('bendahara_pac') &&
+                                            $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) &&
                                             $user->organization?->jenis_organisasi == 'ipnu';
                                         $isBendaharaIppnu =
-                                            $user->hasRole('bendahara_pac') &&
+                                            $user->hasAnyRole(['bendahara_pac', 'bendahara_ranting']) &&
                                             $user->organization?->jenis_organisasi == 'ippnu';
 
                                         $canValidate = $isBendaharaIpnu || $isBendaharaIppnu || $isSuperAdmin;

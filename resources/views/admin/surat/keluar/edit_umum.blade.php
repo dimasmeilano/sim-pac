@@ -9,7 +9,7 @@
             <h3 class="card-title"><i class="fas fa-edit"></i> Edit Formulir Surat Keluar</h3>
         </div>
 
-        <form action="{{ route('surat.keluar.update.umum', $suratKeluar->id) }}" method="POST">
+        <form action="{{ route('surat.keluar.update.umum', $suratKeluar->id) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
 
@@ -121,17 +121,76 @@
                                 value="{{ old('perihal', $suratKeluar->perihal) }}">
                         </div>
 
-                        <div class="form-group">
-                            <label>Tujuan Surat <span class="text-danger">*</span></label>
-                            <textarea name="tujuan_surat" class="form-control" rows="3" required>{{ old('tujuan_surat', $suratKeluar->tujuan) }}</textarea>
+                        {{-- ========================================== --}}
+                        {{-- MULAI INJEKSI SAKLAR TUJUAN (MODE EDIT) --}}
+                        {{-- ========================================== --}}
+                        @php
+                            $isInternal = !is_null($suratKeluar->tujuan_organization_id);
+                        @endphp
+
+                        <div class="form-group border-top pt-3 mt-3">
+                            <label>Kategori Tujuan Pengiriman</label>
+                            <div class="custom-control custom-radio mb-1">
+                                <input class="custom-control-input" type="radio" id="tujuan_eksternal"
+                                    name="kategori_tujuan" value="eksternal" {{ !$isInternal ? 'checked' : '' }}>
+                                <label for="tujuan_eksternal" class="custom-control-label font-weight-normal">Teks Manual
+                                    (SK, Surat Tugas, Eksternal)</label>
+                            </div>
+                            <div class="custom-control custom-radio">
+                                <input class="custom-control-input" type="radio" id="tujuan_internal"
+                                    name="kategori_tujuan" value="internal" {{ $isInternal ? 'checked' : '' }}>
+                                <label for="tujuan_internal" class="custom-control-label font-weight-normal">Internal (Kirim
+                                    ke Ranting/PAC)</label>
+                            </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" id="grup_eksternal"
+                            style="display: {{ !$isInternal ? 'block' : 'none' }};">
+                            <label>Tujuan Surat <span class="text-muted">(Opsional)</span></label>
+                            <textarea name="tujuan_surat" id="tujuan_teks" class="form-control" rows="2"
+                                placeholder="Contoh: Yth. Kepala Desa / Terlampir">{{ old('tujuan_surat', !$isInternal ? $suratKeluar->tujuan : '') }}</textarea>
+                            <small class="text-muted">Bisa dikosongkan jika ini adalah SK atau Surat Tugas.</small>
+                        </div>
+
+                        <div class="form-group" id="grup_internal"
+                            style="display: {{ $isInternal ? 'block' : 'none' }};">
+                            <label>Pilih Ranting / PAC Tujuan <span class="text-danger">*</span></label>
+                            <select name="tujuan_organization_id" id="tujuan_organization_id"
+                                class="form-control select2" style="width: 100%;">
+                                <option value="">-- Pilih Organisasi --</option>
+                                @if (isset($organizations))
+                                    @foreach ($organizations as $org)
+                                        <option value="{{ $org->id }}"
+                                            {{ $suratKeluar->tujuan_organization_id == $org->id ? 'selected' : '' }}>
+                                            {{ $org->nama ?? $org->name }}
+                                            ({{ strtoupper($org->type ?? $org->jenis_organisasi) }})
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                            <small class="text-success d-block mt-1"><i class="fas fa-info-circle"></i> Tembus otomatis ke
+                                dasbor penerima saat disahkan.</small>
+                        </div>
+                        {{-- ========================================== --}}
+
+                        <div class="form-group border-top pt-3 mt-3">
                             <label>Tanggal Surat <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_surat" class="form-control"
                                 value="{{ old('tanggal_surat', \Carbon\Carbon::parse($suratKeluar->tanggal_surat)->format('Y-m-d')) }}"
                                 required>
                         </div>
+
+                        <div class="form-group">
+                            <label for="file_lampiran">File Lampiran <span class="text-muted">(Ganti jika
+                                    perlu)</span></label>
+                            <input type="file" name="file_lampiran" class="form-control-file"
+                                accept=".pdf,.jpg,.jpeg,.png">
+                            @if ($suratKeluar->file_lampiran)
+                                <small class="text-info d-block mt-1"><i class="fas fa-check"></i> File lama sudah
+                                    terlampir. Biarkan kosong jika tidak ingin mengubah.</small>
+                            @endif
+                        </div>
+
                     </div>
 
                 </div>
@@ -168,9 +227,6 @@
                 if (inputSekretaris) inputSekretaris.value = '';
             }
 
-            // PENTING UNTUK EDIT:
-            // Jangan memanggil AJAX nomor otomatis saat halaman pertama kali dimuat. 
-            // Biarkan nomor yang sudah ada (dari database) tetap utuh.
             if (!isInitialLoad) {
                 updateNomorOtomatis();
             }
@@ -212,12 +268,37 @@
             const selectPenerbit = document.getElementById('penerbit_surat');
             const indeksSurat = document.getElementById('klasifikasi_surat');
 
-            // Jika user sengaja mengganti penerbit/klasifikasi, baru trigger (isInitialLoad = false)
             if (selectPenerbit) selectPenerbit.addEventListener('change', () => updateFormDisplay(false));
             if (indeksSurat) indeksSurat.addEventListener('change', updateNomorOtomatis);
 
-            // Saat halaman baru dibuka (Edit mode), set isInitialLoad = true agar nomor tak berubah
+            // Inisialisasi awal form penerbit
             updateFormDisplay(true);
+
+            // -- SAKLAR TUJUAN INTERNAL/EKSTERNAL --
+            const radioEksternal = document.getElementById('tujuan_eksternal');
+            const radioInternal = document.getElementById('tujuan_internal');
+            const grupEksternal = document.getElementById('grup_eksternal');
+            const grupInternal = document.getElementById('grup_internal');
+            const inputTeks = document.getElementById('tujuan_teks');
+            const inputOrg = document.getElementById('tujuan_organization_id');
+
+            function toggleTujuan() {
+                if (radioInternal.checked) {
+                    if (grupInternal) grupInternal.style.display = 'block';
+                    if (grupEksternal) grupEksternal.style.display = 'none';
+                    if (inputOrg) inputOrg.setAttribute('required', 'required');
+                    if (inputTeks) inputTeks.removeAttribute('required');
+                } else {
+                    if (grupInternal) grupInternal.style.display = 'none';
+                    if (grupEksternal) grupEksternal.style.display = 'block';
+                    if (inputTeks) inputTeks.removeAttribute('required');
+                    if (inputOrg) inputOrg.removeAttribute('required');
+                }
+            }
+
+            if (radioEksternal) radioEksternal.addEventListener('change', toggleTujuan);
+            if (radioInternal) radioInternal.addEventListener('change', toggleTujuan);
+            toggleTujuan(); // Eksekusi saat diload
         });
     </script>
 @endpush

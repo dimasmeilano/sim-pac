@@ -35,7 +35,13 @@
                     @foreach ($absensi as $key => $absen)
                         <tr>
                             <td>{{ $key + 1 }}</td>
-                            <td>{{ $absen->user->name }}</td>
+                            <td>
+                                @if ($absen->user_id)
+                                    {{ $absen->user->name }}
+                                @else
+                                    {{ $absen->nama_peserta }} <small>(Umum)</small>
+                                @endif
+                            </td>
                             <td>
                                 @if ($absen->status == 'hadir')
                                     <span class="badge badge-success">Hadir</span>

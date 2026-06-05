@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\SuratTemplate;
 use App\Models\SuratKeluar;
-use App\Services\SuratService; // <-- [BARU] Import Service yang baru dibuat
+use App\Services\SuratService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,16 +24,12 @@ class CetakSuratController extends Controller
         $this->middleware('permission:cetak_surat')->except(['index', 'preview']);
     }
 
-    // ========== HELPER METHODS ==========
-
     private function getLastNomorUrut($kode, $organisasi = null, $tahun = null)
     {
         $tahun = $tahun ?? date('Y');
         $query = SuratKeluar::where('nomor_surat', 'LIKE', $kode . '/%');
 
-        if ($organisasi) {
-            $query->where('jenis_surat', 'LIKE', $organisasi . '%');
-        }
+        if ($organisasi) $query->where('jenis_surat', 'LIKE', $organisasi . '%');
 
         if ($organisasi == 'ipnu') {
             $tahunDuaDigit = substr($tahun, -2);
@@ -60,20 +56,7 @@ class CetakSuratController extends Controller
     {
         if (empty($tanggal)) return '';
 
-        $bulan = [
-            1 => 'Januari',
-            2 => 'Februari',
-            3 => 'Maret',
-            4 => 'April',
-            5 => 'Mei',
-            6 => 'Juni',
-            7 => 'Juli',
-            8 => 'Agustus',
-            9 => 'September',
-            10 => 'Oktober',
-            11 => 'November',
-            12 => 'Desember'
-        ];
+        $bulan = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
 
         $timestamp = strtotime($tanggal);
         if (!$timestamp) return $tanggal;
@@ -86,28 +69,15 @@ class CetakSuratController extends Controller
         try {
             $hijri = new HijriDateTime(new \DateTime('now'));
             $tanggalHijriah = $hijri->format('_j _F _Y');
-
-            if (empty($tanggalHijriah)) {
-                $tanggalHijriah = $hijri->date("_j _F _Y");
-            }
+            if (empty($tanggalHijriah)) $tanggalHijriah = $hijri->date("_j _F _Y");
             $tanggalHijriah = preg_replace('/\s+/', ' ', $tanggalHijriah);
-
             if (str_ends_with(strtoupper($tanggalHijriah), 'H')) return $tanggalHijriah;
             return $tanggalHijriah . ' H';
         } catch (\Throwable $e) {
             $dateObj = new \DateTime('now');
-            $formatter = new \IntlDateFormatter(
-                'id_ID@calendar=islamic-umalqura',
-                \IntlDateFormatter::LONG,
-                \IntlDateFormatter::NONE,
-                'Asia/Jakarta',
-                \IntlDateFormatter::TRADITIONAL
-            );
-
+            $formatter = new \IntlDateFormatter('id_ID@calendar=islamic-umalqura', \IntlDateFormatter::LONG, \IntlDateFormatter::NONE, 'Asia/Jakarta', \IntlDateFormatter::TRADITIONAL);
             $hasilIntl = $formatter->format($dateObj);
-            if (!str_ends_with(strtoupper($hasilIntl), 'H')) {
-                $hasilIntl = $hasilIntl . ' H';
-            }
+            if (!str_ends_with(strtoupper($hasilIntl), 'H')) $hasilIntl = $hasilIntl . ' H';
             return $hasilIntl;
         }
     }
@@ -116,19 +86,12 @@ class CetakSuratController extends Controller
     {
         try {
             $request->validate(['jenis_surat' => 'required|string']);
-            $nomor = NomorSuratHelper::generateWithCurrentMonth(
-                'ipnu',
-                'PAC',
-                $request->jenis_surat,
-                'XVI'
-            );
+            $nomor = NomorSuratHelper::generateWithCurrentMonth('ipnu', 'PAC', $request->jenis_surat, 'XVI');
             return response()->json(['status' => 'success', 'nomor' => $nomor]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
-
-    // ========== MAIN METHODS ==========
 
     public function index()
     {
@@ -180,82 +143,58 @@ class CetakSuratController extends Controller
         $user = auth()->user();
         $org = $user->organization ?? \App\Models\Organization::where('type', 'pac')->first();
 
-        // 1. Validasi Hak Akses (Sesuai Aturan Anda)
-        if (!$user->isWakil() && !$user->hasRole('super_admin')) {
-            return back()->with('error', 'Hanya Wakil yang dapat mengajukan surat ini');
-        }
+        if (!$user->isWakil() && !$user->hasRole('super_admin')) return back()->with('error', 'Hanya Wakil yang dapat mengajukan surat ini');
 
         if ($user->hasRole('super_admin') && $request->filled('organization_override')) {
             $overrideOrg = \App\Models\Organization::find($request->organization_override);
             if ($overrideOrg) $org = $overrideOrg;
         }
 
-        // 2. Generator Nomor Surat Otomatis
         $organisasi = strtolower($org->jenis_organisasi ?? 'bersama');
         $tingkat = strtoupper($org->type ?? 'pac');
         $periode = strtoupper($org->periode ?? 'XVII');
 
         $nomorSurat = $request->nomor_surat;
         if (empty($nomorSurat)) {
-            // Asumsi class NomorSuratHelper sudah di-use di atas
-            $nomorSurat = NomorSuratHelper::generate(
-                $organisasi,
-                $tingkat,
-                $template->kode,
-                $periode,
-                NomorSuratHelper::bulanToRomawi(date('n')),
-                ($organisasi == 'ipnu') ? date('y') : date('Y')
-            );
+            $nomorSurat = NomorSuratHelper::generate($organisasi, $tingkat, $template->kode, $periode, NomorSuratHelper::bulanToRomawi(date('n')), ($organisasi == 'ipnu') ? date('y') : date('Y'));
         }
 
-        // 3. Validasi Form Dinamis
         $fields = $template->fields ?? [];
-        if (is_string($fields)) {
-            $fields = json_decode($fields, true) ?? [];
-        }
+        if (is_string($fields)) $fields = json_decode($fields, true) ?? [];
 
-        $rules = ['nomor_surat' => 'required|string'];
+        $rules = ['nomor_surat' => 'required|string', 'kategori_tujuan' => 'nullable|in:internal,eksternal'];
         foreach ($fields as $field => $type) {
             $rules["fields.$field"] = 'nullable|string';
         }
         $request->validate($rules);
 
-        // 4. Persiapan Data untuk Service
         $dataSurat = $request->input('fields', []);
-
-        // Tetapkan tanggal surat (dari form, atau hari ini jika kosong)
         $tanggalSurat = $dataSurat['tanggal_masehi'] ?? date('Y-m-d');
-        if (empty($dataSurat['tanggal_masehi'])) {
-            $dataSurat['tanggal_masehi'] = $tanggalSurat;
-        }
+        if (empty($dataSurat['tanggal_masehi'])) $dataSurat['tanggal_masehi'] = $tanggalSurat;
 
-        // Ambil isi mentah (Jika ada hasil edit dari TinyMCE, gunakan itu. Jika tidak, gunakan template asli)
         $isiSuratMentah = $request->input('edited_content', $template->konten ?? $template->isi_surat);
 
-        // ====================================================================
-        // 5. PANGGIL MESIN CERDAS (SuratService)
-        // ====================================================================
         $suratService = new \App\Services\SuratService();
-        // Cukup lemparkan 5 datanya, Service yang akan mengurus semua str_replace dan tanggal Hijriahnya!
-        $isiSuratFinal = $suratService->renderIsiSurat(
-            $nomorSurat,
-            $org,
-            $isiSuratMentah,
-            $dataSurat,
-            $tanggalSurat
-        );
+        $isiSuratFinal = $suratService->renderIsiSurat($nomorSurat, $org, $isiSuratMentah, $dataSurat, $tanggalSurat);
 
-        // 6. Upload Lampiran Fisik (Jika ada)
         $lampiranPath = null;
         if ($request->hasFile('file_lampiran')) {
-            $file = $request->file('file_lampiran');
-            $lampiranPath = $file->storeAs('surat/lampiran', 'lampiran_' . time() . '_' . $file->getClientOriginalName(), 'public');
+            $lampiranPath = $request->file('file_lampiran')->storeAs('surat/lampiran', 'lampiran_' . time() . '_' . $request->file('file_lampiran')->getClientOriginalName(), 'public');
         }
 
-        // 7. Simpan Ke Database
         $perihal = $dataSurat['perihal'] ?? $template->nama;
-        $tujuan = $dataSurat['tujuan'] ?? '-';
         $jenisSuratOtomatis = strtolower(trim($template->jenis_surat ?? $template->jenis ?? 'biasa'));
+
+        // Penentuan Tujuan Surat Khusus
+        $kategoriTujuan = $request->input('kategori_tujuan', 'eksternal');
+        $tujuanOrgId = null;
+        $tujuanTeks = $dataSurat['tujuan'] ?? $request->input('tujuan', '-');
+
+        if ($kategoriTujuan === 'internal') {
+            $tujuanOrgId = $request->input('tujuan_organization_id');
+            $orgTujuan = Organization::find($tujuanOrgId);
+            $tujuanTeks = $orgTujuan ? $orgTujuan->nama : $tujuanTeks;
+        }
 
         $surat = \App\Models\SuratKeluar::create([
             'organization_id' => $org->id,
@@ -263,10 +202,11 @@ class CetakSuratController extends Controller
             'jenis_surat'     => $jenisSuratOtomatis,
             'nomor_surat'     => $nomorSurat,
             'perihal'         => $perihal,
-            'tujuan'          => $tujuan,
-            'isi_surat'       => $isiSuratFinal, // Gunakan hasil render final dari service
+            'tujuan_organization_id' => $tujuanOrgId,
+            'tujuan'          => $tujuanTeks,
+            'isi_surat'       => $isiSuratFinal,
             'file_lampiran'   => $lampiranPath,
-            'data_surat'      => $dataSurat,     // JSON disimpan utuh untuk Edit
+            'data_surat'      => $dataSurat,
             'status_validasi' => 'draft',
             'diajukan_oleh'   => null,
             'divalidasi_oleh' => null,
@@ -274,13 +214,11 @@ class CetakSuratController extends Controller
             'created_by'      => $user->id,
         ]);
 
-        // 8. Respon Sukses
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['status' => 'success', 'message' => 'Surat berhasil disimpan!']);
         }
 
-        return redirect()->route('surat.keluar.show', $surat)
-            ->with('success', 'Draft surat berhasil disimpan! Silakan periksa kembali detailnya, lalu pilih Wakil dan klik "Ajukan Validasi" pada panel di sebelah kanan.');
+        return redirect()->route('surat.keluar.show', $surat)->with('success', 'Draft surat berhasil disimpan! Silakan periksa kembali detailnya, lalu pilih Wakil dan klik "Ajukan Validasi" pada panel di sebelah kanan.');
     }
 
     public function previewSurat(Request $request)
@@ -289,14 +227,9 @@ class CetakSuratController extends Controller
             $templateId = $request->template_id;
             $nomorSurat = $request->nomor_surat ?? '[Nomor Belum Di-generate]';
             $dataSurat = $request->input('fields', []);
-
-            // Ambil Organisasi
             $organisasi = auth()->user()->organization ?? \App\Models\Organization::where('type', 'pac')->first();
 
-            // Keamanan jika organisasi tidak ditemukan
-            if (!$organisasi) {
-                throw new \Exception("Data Organisasi tidak ditemukan untuk user ini.");
-            }
+            if (!$organisasi) throw new \Exception("Data Organisasi tidak ditemukan untuk user ini.");
 
             if ($organisasi->jenis_organisasi == 'ipnu') {
                 $namaOrganisasiBaris2 = "IKATAN PELAJAR NAHDLATUL ULAMA";
@@ -334,42 +267,32 @@ class CetakSuratController extends Controller
             $tanggalMasehiTarget = $dataSurat['tanggal_masehi'] ?? $dataSurat['tanggal_penetapan'] ?? date('Y-m-d');
             if (empty($dataSurat['tanggal_masehi'])) $dataSurat['tanggal_masehi'] = $tanggalMasehiTarget;
 
-            // PERBAIKAN 1: Panggil formatTanggalIndonesia melalui Helper
             $dataSurat['tanggal_masehi_formatted'] = \App\Helpers\NomorSuratHelper::formatTanggalIndonesia($dataSurat['tanggal_masehi']);
 
             if (isset($dataSurat['surat_ranting_tanggal']) && !empty($dataSurat['surat_ranting_tanggal'])) {
-                // PERBAIKAN 2: Panggil Helper
                 $dataSurat['surat_ranting_tanggal_formatted'] = \App\Helpers\NomorSuratHelper::formatTanggalIndonesia($dataSurat['surat_ranting_tanggal']);
             }
 
-            // PERBAIKAN 3: Cek apakah fungsi ada, jika tidak isi default
             if (empty($dataSurat['tanggal_hijriah'])) {
-                $dataSurat['tanggal_hijriah'] = method_exists($this, 'getTanggalHijriahOtomatis')
-                    ? $this->getTanggalHijriahOtomatis()
-                    : '....... Hijriah';
+                $dataSurat['tanggal_hijriah'] = method_exists($this, 'getTanggalHijriahOtomatis') ? $this->getTanggalHijriahOtomatis() : '....... Hijriah';
             }
 
             $dataSurat['tanggal_masehi'] = $dataSurat['tanggal_masehi_formatted'] . ' M';
 
-            // Ambil Template
             $template = \App\Models\SuratTemplate::findOrFail($templateId);
             $isiSurat = $template->konten;
 
-            // Eksekusi Replace Teks
             $isiSurat = str_replace('{nomor_surat}', $nomorSurat, $isiSurat);
             if (isset($dataSurat['surat_ranting_tanggal_formatted'])) {
                 $isiSurat = str_replace('{surat_ranting_tanggal}', $dataSurat['surat_ranting_tanggal_formatted'], $isiSurat);
             }
 
             foreach ($dataSurat as $field => $value) {
-                if (is_string($value) || is_numeric($value)) {
-                    $isiSurat = str_replace('{' . $field . '}', $value, $isiSurat);
-                }
+                if (is_string($value) || is_numeric($value)) $isiSurat = str_replace('{' . $field . '}', $value, $isiSurat);
             }
 
             return view('admin.cetak-surat.preview', compact('isiSurat', 'template', 'dataSurat', 'nomorSurat'));
         } catch (\Exception $e) {
-            // Jika ada error, kirim ke browser agar terlihat letak salahnya (bukan hanya error 500 blank)
             return response("Terdapat Error di Server: <br><b>" . $e->getMessage() . "</b><br>Pada file: " . $e->getFile() . " baris " . $e->getLine(), 500);
         }
     }
@@ -378,6 +301,15 @@ class CetakSuratController extends Controller
     {
         try {
             $template = \App\Models\SuratTemplate::findOrFail($request->template_id);
+
+            $kategoriTujuan = $request->input('kategori_tujuan', 'eksternal');
+            $tujuanOrgId = $kategoriTujuan === 'internal' ? $request->input('tujuan_organization_id') : null;
+            $tujuanTeks = $request->input('tujuan', '-');
+
+            if ($kategoriTujuan === 'internal' && $tujuanOrgId) {
+                $tujuanTeks = Organization::find($tujuanOrgId)->nama ?? $tujuanTeks;
+            }
+
             $surat = new \App\Models\SuratKeluar();
             $surat->template_id     = $request->template_id;
             $surat->nomor_surat     = $request->nomor_surat;
@@ -388,7 +320,8 @@ class CetakSuratController extends Controller
             $surat->jenis_surat     = strtolower(trim($template->jenis_surat ?? 'biasa'));
             $surat->status          = 'selesai';
             $surat->perihal         = $request->input('perihal', $template->nama);
-            $surat->tujuan          = $request->input('tujuan', '-');
+            $surat->tujuan_organization_id = $tujuanOrgId;
+            $surat->tujuan          = $tujuanTeks;
             $surat->save();
 
             return response()->json(['status' => 'success']);
