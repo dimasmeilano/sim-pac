@@ -4,13 +4,13 @@
 @section('page-title', 'Program Kerja')
 
 @section('content')
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h3 class="card-title">Daftar Program Kerja</h3>
+    <div class="card card-primary card-outline shadow-sm">
+        <div class="card-header border-bottom-0 pt-3 pb-2">
+            <h3 class="card-title mt-1"><i class="fas fa-project-diagram text-primary mr-2"></i> Daftar Program Kerja</h3>
             <div class="card-tools">
                 {{-- Tombol tambah proker biasanya hanya untuk Sekretaris atau Admin --}}
                 @hasanyrole('super_admin|sekretaris_pac|sekretaris_ranting')
-                    <a href="{{ route('progja.create') }}" class="btn btn-sm btn-primary">
+                    <a href="{{ route('progja.create') }}" class="btn btn-sm btn-primary shadow-sm">
                         <i class="fas fa-plus-circle mr-1"></i> Tambah Progja
                     </a>
                 @endhasanyrole
@@ -43,7 +43,7 @@
 
                             {{-- Jenis & Deskripsi Program --}}
                             <td>
-                                <div class="font-weight-bold text-primary">{{ $progja->nama_program }}</div>
+                                <div class="font-weight-bold text-primary">{{ $progja->nama }}</div>
                                 <small class="text-muted d-block text-wrap" style="max-width: 300px;">
                                     {{ Str::limit($progja->deskripsi, 60) }}
                                 </small>

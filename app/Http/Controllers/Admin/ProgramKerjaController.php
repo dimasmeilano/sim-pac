@@ -21,36 +21,32 @@ class ProgramKerjaController extends Controller
     public function index()
     {
         // 1. Update status otomatis (tetap pertahankan kode asli Anda)
-        \App\Models\ProgramKerja::where('status', 'active')
+        ProgramKerja::where('status', 'active')
             ->where('tgl_selesai', '<', now()->toDateString())
             ->update(['status' => 'completed']);
 
         // 2. Siapkan query dasar
-        $query = \App\Models\ProgramKerja::with('organization', 'tugas');
+        $query = ProgramKerja::with('organization', 'tugas');
         $user = auth()->user();
 
         // 3. Jalankan filter jika yang login BUKAN Super Admin
         if (!$user->hasRole('super_admin')) {
-
-            // Eager load relasi organisasi milik user untuk memastikan datanya ada
             if ($user->organization) {
-                $jenisOrgUser = $user->organization->jenis_organisasi; // Isinya: 'ipnu' atau 'ippnu' atau 'bersama'
+                // KUNCI UTAMA: Hanya tampilkan proker milik organisasinya sendiri
+                $query->where('organization_id', $user->organization_id);
 
-                // Saring program kerja berdasarkan kolom 'jenis_organisasi' di tabel induknya (organizations)
-                $query->whereHas('organization', function ($q) use ($jenisOrgUser) {
+                // Filter tambahan untuk jenis organisasi (IPNU/IPPNU)
+                $jenisOrgUser = $user->organization->jenis_organisasi;
+                $query->where(function ($q) use ($jenisOrgUser) {
                     if ($jenisOrgUser === 'ipnu') {
-                        // Sekretaris IPNU hanya bisa melihat proker IPNU dan proker Bersama
-                        $q->whereIn('jenis_organisasi', ['ipnu', 'bersama']);
+                        $q->whereIn('jenis', ['ipnu', 'bersama']);
                     } elseif ($jenisOrgUser === 'ippnu') {
-                        // Sekretaris IPPNU hanya bisa melihat proker IPPNU dan proker Bersama
-                        $q->whereIn('jenis_organisasi', ['ippnu', 'bersama']);
+                        $q->whereIn('jenis', ['ippnu', 'bersama']);
                     } else {
-                        // Jika user berasal dari organisasi 'bersama' (PAC global)
-                        $q->where('jenis_organisasi', 'bersama');
+                        $q->where('jenis', 'bersama');
                     }
                 });
             } else {
-                // Antisipasi keamanan: jika user tidak punya organisasi, kunci agar tidak bisa melihat data apapun
                 $query->whereNull('id');
             }
         }
@@ -90,6 +86,10 @@ class ProgramKerjaController extends Controller
 
     public function show(ProgramKerja $progja)
     {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
         $progja->load('tugas.assignee', 'messages.user', 'organization');
 
         $todos = $progja->tugas->where('status', 'todo');
@@ -97,18 +97,26 @@ class ProgramKerjaController extends Controller
         $done = $progja->tugas->where('status', 'done');
         $revisi = $progja->tugas->where('status', 'revisi');
 
-        $users = User::orderBy('name')->get();
+        $users = User::where('organization_id', $progja->organization_id)->orderBy('name')->get();
 
         return view('admin.progja.show', compact('progja', 'todos', 'progress', 'done', 'revisi', 'users'));
     }
 
     public function edit(ProgramKerja $progja)
     {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
         return view('admin.progja.edit', compact('progja'));
     }
 
     public function update(Request $request, ProgramKerja $progja)
     {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
         $request->validate([
             'nama' => 'required|string|max:200',
             'deskripsi' => 'nullable|string',
@@ -124,6 +132,10 @@ class ProgramKerjaController extends Controller
 
     public function destroy(ProgramKerja $progja)
     {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
         $progja->delete();
         return redirect()->route('progja.index')->with('success', 'Program Kerja berhasil dihapus');
     }

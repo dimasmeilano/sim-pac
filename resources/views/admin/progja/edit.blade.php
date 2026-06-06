@@ -4,9 +4,9 @@
 @section('page-title', 'Edit Program Kerja: ' . $progja->nama)
 
 @section('content')
-    <div class="card">
+    <div class="card card-warning shadow-sm">
         <div class="card-header">
-            <h3 class="card-title">Form Edit Program Kerja</h3>
+            <h3 class="card-title"><i class="fas fa-edit mr-1"></i> Form Edit Program Kerja</h3>
         </div>
         <form action="{{ route('progja.update', $progja) }}" method="POST">
             @csrf

@@ -4,9 +4,9 @@
 @section('page-title', 'Tambah Program Kerja Baru')
 
 @section('content')
-    <div class="card">
+    <div class="card card-success shadow-sm">
         <div class="card-header">
-            <h3 class="card-title">Form Tambah Program Kerja</h3>
+            <h3 class="card-title"><i class="fas fa-plus-square mr-1"></i> Form Tambah Program Kerja</h3>
         </div>
         <form action="{{ route('progja.store') }}" method="POST">
             @csrf

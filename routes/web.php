@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Admin\CetakSuratController;
+use App\Http\Controllers\Admin\InventarisController;
 use App\Http\Controllers\Admin\KegiatanController;
 use App\Http\Controllers\Admin\KeuanganController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\MenuController;
+use App\Http\Controllers\Admin\NotulensiController;
 use App\Http\Controllers\Admin\OrganizationController;
 use App\Http\Controllers\Admin\OrganizationSettingController;
 use App\Http\Controllers\Admin\PengajuanController;
@@ -147,6 +149,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/members/export', [MemberController::class, 'exportExcel'])->name('members.export');
         Route::get('/members/export/pdf', [MemberController::class, 'exportPdf'])->name('members.export.pdf');
         Route::resource('members', MemberController::class);
+        Route::get('inventaris/cetak-label/{id?}', [InventarisController::class, 'cetakLabel'])->name('inventaris.cetak_label');
+        Route::resource('inventaris', InventarisController::class);
+        Route::get('notulensi/{notulensi}/pdf', [NotulensiController::class, 'cetakPdf'])->name('notulensi.pdf');
+        // Rute Tombol Ajaib Finalisasi Notulensi
+        Route::patch('notulensi/{notulensi}/finalize', [NotulensiController::class, 'finalize'])->name('notulensi.finalize');
+        Route::resource('notulensi', NotulensiController::class);
         Route::prefix('surat')->name('surat.')->group(function () {
 
             // Sekarang ini akan otomatis memiliki nama 'surat.template.index'

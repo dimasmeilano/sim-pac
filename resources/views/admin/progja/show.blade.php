@@ -242,7 +242,7 @@
 
         <div class="row">
             <div class="col-md-12 mb-3">
-                <div class="card">
+                <div class="card card-primary card-outline shadow-sm">
                     <div class="card-header">
                         <h3 class="card-title">
                             @if ($progja->jenis == 'ipnu')
@@ -668,7 +668,7 @@
                                                     mentionTarget.toLowerCase())) {
                                                 isMentioned = true;
                                                 bubbleBg =
-                                                '#fffae6'; // Warna gelembung saat ditandai (kuning pucat)
+                                                    '#fffae6'; // Warna gelembung saat ditandai (kuning pucat)
                                             }
                                             // Highlight teks @mention
                                             var regex = new RegExp(mentionTarget, 'gi');
@@ -739,7 +739,7 @@
                                         var textToReply = msg.message ? escapeHtml(msg.message).replace(
                                             /'/g, "\\'") : '📂 File Lampiran';
                                         var nameToReply = escapeHtml(msg.user.name).replace(/'/g,
-                                        "\\'");
+                                            "\\'");
 
                                         html +=
                                             '<div class="d-flex justify-content-end align-items-center mt-1" style="font-size: 10px; color: #888;">';
@@ -768,7 +768,7 @@
                                 } else {
                                     chatBox.html(
                                         '<div class="text-center text-white py-5"><i class="fas fa-comments fa-3x mb-3 opacity-50"></i><br>Belum ada pesan</div>'
-                                        );
+                                    );
                                 }
                             }
                         });
