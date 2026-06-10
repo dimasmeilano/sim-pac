@@ -5,26 +5,16 @@ namespace App\Models;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Kegiatan extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory, BelongsToOrganization, LogsActivity;
 
     protected $table = 'kegiatan';
 
-    protected $fillable = [
-        'organization_id',
-        'program_kerja_id',
-        'nama',
-        'deskripsi',
-        'tempat',
-        'tgl_mulai',
-        'tgl_selesai',
-        'qr_code',
-        'status',
-        'ketua_pelaksana_id',
-        'mode_absensi',
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'tgl_mulai' => 'datetime',
@@ -79,5 +69,31 @@ class Kegiatan extends Model
     public function ketuaPelaksana()
     {
         return $this->belongsTo(User::class, 'ketua_pelaksana_id');
+    }
+
+    // Relasi ke Galeri (1 Kegiatan punya BANYAK File/Foto)
+    public function galeris()
+    {
+        return $this->hasMany(Galeri::class);
+    }
+
+    public function notulensis()
+    {
+        // Pastikan 'Notulensi::class' sesuai dengan nama Model notulensi Anda
+        return $this->hasMany(Notulensi::class, 'kegiatan_id');
+    }
+
+    public function folders()
+    {
+        return $this->hasMany(WorkspaceFolder::class, 'kegiatan_id');
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Kegiatan telah di-{$eventName}");
     }
 }

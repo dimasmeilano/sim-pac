@@ -2,35 +2,34 @@
 
 namespace App\Models;
 
-use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Notulensi extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory;
 
+    // Pastikan nama tabelnya sesuai di database Anda
     protected $table = 'notulensi';
 
-    protected $fillable = [
-        'organization_id',
-        'kegiatan_id',
-        'agenda',
-        'tanggal',
-        'waktu_mulai',
-        'waktu_selesai',
-        'tempat',
-        'pemimpin_rapat',
-        'notulis_id',
-        'pembahasan',
-        'kesimpulan',
-        'status'
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'tanggal' => 'date',
     ];
 
+    // Status Badge untuk mempermudah pemanggilan di Blade
+    public function getStatusBadgeAttribute()
+    {
+        if ($this->status == 'final') {
+            return '<span class="badge badge-success"><i class="fas fa-lock"></i> Final</span>';
+        }
+        return '<span class="badge badge-warning"><i class="fas fa-edit"></i> Draft</span>';
+    }
+
+    // ==========================================
+    // RELASI DATABASE
+    // ==========================================
     public function organization()
     {
         return $this->belongsTo(Organization::class);
@@ -44,12 +43,5 @@ class Notulensi extends Model
     public function notulis()
     {
         return $this->belongsTo(User::class, 'notulis_id');
-    }
-
-    public function getStatusBadgeAttribute()
-    {
-        return $this->status == 'final'
-            ? '<span class="badge badge-success"><i class="fas fa-check-double"></i> Final</span>'
-            : '<span class="badge badge-secondary"><i class="fas fa-edit"></i> Draft</span>';
     }
 }

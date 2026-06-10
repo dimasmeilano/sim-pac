@@ -33,6 +33,13 @@
                             <td>{{ $notulensi->firstItem() + $index }}</td>
                             <td>
                                 <strong class="text-primary">{{ $item->agenda }}</strong>
+
+                                {{-- KHUSUS SUPER ADMIN: Tampilkan Pemilik Rapat --}}
+                                @if (auth()->user()->hasRole('super_admin'))
+                                    <br><span class="badge badge-danger mt-1"><i class="fas fa-sitemap"></i>
+                                        {{ $item->organization->name ?? 'Semua' }}</span>
+                                @endif
+
                                 @if ($item->kegiatan)
                                     <br><small class="text-muted"><i class="fas fa-link"></i> Terkait:
                                         {{ Str::limit($item->kegiatan->nama, 30) }}</small>

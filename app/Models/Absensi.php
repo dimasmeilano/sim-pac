@@ -4,24 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Absensi extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $table = 'absensi';
-    protected $fillable = [
-        'kegiatan_id',
-        'user_id',
-        'nama_peserta',
-        'asal_peserta',
-        'no_hp_peserta',
-        'waktu_absen',
-        'status',
-        'keterangan',
-        'ip_address'
 
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'waktu_absen' => 'datetime',
@@ -46,5 +38,14 @@ class Absensi extends Model
             'alpha' => '<span class="badge badge-danger">Alpha</span>',
         ];
         return $statuses[$this->status] ?? '-';
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Absensi telah di-{$eventName}");
     }
 }

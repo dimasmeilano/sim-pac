@@ -5,34 +5,16 @@ namespace App\Models;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Transaksi extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory, BelongsToOrganization, LogsActivity;
 
     protected $table = 'transaksi';
 
-    protected $fillable = [
-        'organization_id',
-        'jenis_organisasi',
-        'program_kerja_id',
-        'kegiatan_id',
-        'kode_transaksi',
-        'judul',
-        'jenis',
-        'nominal',
-        'tanggal',
-        'kategori',
-        'keterangan',
-        'bukti_file',
-        'created_by',
-        'status_validasi',
-        'divalidasi_oleh',
-        'catatan_validasi',
-        'tanggal_validasi'
-    ];
-
-
+    protected $guarded = [];
 
     protected $casts = [
         'tanggal' => 'date',
@@ -97,5 +79,14 @@ class Transaksi extends Model
             'ditolak' => '<span class="badge badge-danger">Ditolak</span>',
         ];
         return $statuses[$this->status_validasi] ?? '-';
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Kas telah di-{$eventName}");
     }
 }

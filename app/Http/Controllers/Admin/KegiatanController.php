@@ -7,6 +7,7 @@ use App\Models\Absensi;
 use App\Models\Kegiatan;
 use App\Models\ProgramKerja;
 use App\Models\User;
+use App\Models\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -24,18 +25,13 @@ class KegiatanController extends Controller
 
     public function index()
     {
-        // 1. Siapkan query dasar
         $query = Kegiatan::with('programKerja', 'organization');
         $user = auth()->user();
-
-        // 2. Jalankan filter jika yang login BUKAN Super Admin
 
         if (!$user->hasRole('super_admin')) {
             $query->where('organization_id', $user->organization_id);
             if ($user->organization) {
                 $jenisOrgUser = $user->organization->jenis_organisasi;
-
-                // Saring kegiatan berdasarkan jenis_organisasi di tabel organizations
                 $query->whereHas('organization', function ($q) use ($jenisOrgUser) {
                     if ($jenisOrgUser === 'ipnu') {
                         $q->whereIn('jenis_organisasi', ['ipnu', 'bersama']);
@@ -46,29 +42,41 @@ class KegiatanController extends Controller
                     }
                 });
             } else {
-                // Antisipasi keamanan
                 $query->whereNull('id');
             }
         }
 
-        // 3. Eksekusi query
         $kegiatan = $query->orderBy('tgl_mulai', 'desc')->paginate(10);
-
         return view('admin.kegiatan.index', compact('kegiatan'));
     }
 
     public function create()
     {
-        $programKerja = ProgramKerja::where('status', 'active')->get();
-        $users = User::orderBy('name')->get();
-        return view('admin.kegiatan.create', compact('programKerja', 'users'));
+        // 1. Super Admin butuh daftar organisasi
+        $organizations = auth()->user()->hasRole('super_admin') ? Organization::all() : [];
+
+        // 2. Filter Progja berdasarkan organisasi (kecuali Super Admin)
+        $progjaQuery = ProgramKerja::where('status', 'active');
+        if (!auth()->user()->hasRole('super_admin')) {
+            $progjaQuery->where('organization_id', auth()->user()->organization_id);
+        }
+        $programKerja = $progjaQuery->get();
+
+        // 3. Filter User untuk Ketua Pelaksana
+        $userQuery = User::orderBy('name');
+        if (!auth()->user()->hasRole('super_admin')) {
+            $userQuery->where('organization_id', auth()->user()->organization_id);
+        }
+        $users = $userQuery->get();
+
+        return view('admin.kegiatan.create', compact('programKerja', 'users', 'organizations'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'nama' => 'required|string|max:200',
-            'program_kerja_id' => 'nullable|exists:program_kerja,id',
+            'program_kerja_id' => 'nullable|exists:program_kerjas,id', // Sesuaikan nama tabel progja Anda (program_kerja atau program_kerjas)
             'tempat' => 'required|string|max:255',
             'tgl_mulai' => 'required|date',
             'tgl_selesai' => 'required|date|after:tgl_mulai',
@@ -79,7 +87,8 @@ class KegiatanController extends Controller
         ]);
 
         $kegiatan = Kegiatan::create([
-            'organization_id' => auth()->user()->organization_id,
+            // Logika Kepemilikan Organisasi
+            'organization_id' => $request->organization_id ?? auth()->user()->organization_id,
             'program_kerja_id' => $request->program_kerja_id,
             'nama' => $request->nama,
             'deskripsi' => $request->deskripsi,
@@ -91,7 +100,6 @@ class KegiatanController extends Controller
             'mode_absensi' => $request->mode_absensi,
         ]);
 
-        // Generate QR Code untuk absensi
         $this->generateQrCode($kegiatan);
 
         return redirect()->route('kegiatan.index')->with('success', 'Kegiatan berhasil ditambahkan');
@@ -102,7 +110,7 @@ class KegiatanController extends Controller
         if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
             abort(403, 'Akses Ditolak! Ini adalah kegiatan milik organisasi lain.');
         }
-        $kegiatan->load('programKerja', 'absensi.user');
+        $kegiatan->load('programKerja', 'absensi.user', 'organization');
 
         $hadir = $kegiatan->absensi->where('status', 'hadir')->count();
         $izin = $kegiatan->absensi->where('status', 'izin')->count();
@@ -118,16 +126,33 @@ class KegiatanController extends Controller
         if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
             abort(403, 'Akses Ditolak! Ini adalah kegiatan milik organisasi lain.');
         }
-        $programKerja = ProgramKerja::where('status', 'active')->get();
-        $users = User::orderBy('name')->get();
-        return view('admin.kegiatan.edit', compact('kegiatan', 'programKerja', 'users'));
+
+        $organizations = auth()->user()->hasRole('super_admin') ? Organization::all() : [];
+
+        $progjaQuery = ProgramKerja::where('status', 'active');
+        if (!auth()->user()->hasRole('super_admin')) {
+            $progjaQuery->where('organization_id', auth()->user()->organization_id);
+        }
+        $programKerja = $progjaQuery->get();
+
+        $userQuery = User::orderBy('name');
+        if (!auth()->user()->hasRole('super_admin')) {
+            $userQuery->where('organization_id', auth()->user()->organization_id);
+        }
+        $users = $userQuery->get();
+
+        return view('admin.kegiatan.edit', compact('kegiatan', 'programKerja', 'users', 'organizations'));
     }
 
     public function update(Request $request, Kegiatan $kegiatan)
     {
+        if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah kegiatan milik organisasi lain.');
+        }
+
         $request->validate([
             'nama' => 'required|string|max:200',
-            'program_kerja_id' => 'nullable|exists:program_kerja,id',
+            'program_kerja_id' => 'nullable|exists:program_kerjas,id',
             'tempat' => 'required|string|max:255',
             'tgl_mulai' => 'required|date',
             'tgl_selesai' => 'required|date|after:tgl_mulai',
@@ -137,7 +162,10 @@ class KegiatanController extends Controller
             'mode_absensi' => 'required|in:internal,public',
         ]);
 
-        // Update hanya field yang diizinkan
+        if (auth()->user()->hasRole('super_admin') && $request->has('organization_id')) {
+            $kegiatan->organization_id = $request->organization_id;
+        }
+
         $kegiatan->update([
             'nama' => $request->nama,
             'program_kerja_id' => $request->program_kerja_id,
@@ -150,7 +178,6 @@ class KegiatanController extends Controller
             'mode_absensi' => $request->mode_absensi,
         ]);
 
-        // Regenerate QR jika mode berubah? (opsional)
         if ($kegiatan->wasChanged('mode_absensi')) {
             $this->generateQrCode($kegiatan);
         }
@@ -160,6 +187,10 @@ class KegiatanController extends Controller
 
     public function destroy(Kegiatan $kegiatan)
     {
+        if (!auth()->user()->hasRole('super_admin') && $kegiatan->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak!');
+        }
+
         if ($kegiatan->qr_code && Storage::disk('public')->exists($kegiatan->qr_code)) {
             Storage::disk('public')->delete($kegiatan->qr_code);
         }
@@ -167,12 +198,9 @@ class KegiatanController extends Controller
         return redirect()->route('kegiatan.index')->with('success', 'Kegiatan berhasil dihapus');
     }
 
-    // Generate QR Code
     private function generateQrCode(Kegiatan $kegiatan)
     {
-        // Pakai URL lengkap
         $qrData = url('/absensi/' . $kegiatan->id . '/form');
-
         $qrFileName = 'kegiatan/qrcode/qrcode_' . $kegiatan->id . '.png';
         $qrPath = storage_path('app/public/' . $qrFileName);
 
@@ -180,15 +208,10 @@ class KegiatanController extends Controller
             Storage::disk('public')->makeDirectory('kegiatan/qrcode');
         }
 
-        QrCode::format('png')->size(300)->generate($qrData, $qrPath);
-
-        if ($kegiatan->qr_code && Storage::disk('public')->exists($kegiatan->qr_code)) {
-            Storage::disk('public')->delete($kegiatan->qr_code);
-        }
+        QrCode::format('png')->size(300)->margin(2)->generate($qrData, $qrPath);
 
         $kegiatan->qr_code = $qrFileName;
-        $kegiatan->save();
-
+        $kegiatan->saveQuietly(); // saveQuietly agar tidak trigger event update berulang
         return $qrFileName;
     }
 
@@ -200,7 +223,6 @@ class KegiatanController extends Controller
         return response()->download(storage_path('app/public/' . $kegiatan->qr_code));
     }
 
-    // Absensi Methods
     public function scanForm()
     {
         return view('admin.kegiatan.scan');
@@ -208,17 +230,23 @@ class KegiatanController extends Controller
 
     public function scanProcess(Request $request)
     {
-        $request->validate([
-            'qr_data' => 'required|string',
-        ]);
+        $request->validate(['qr_data' => 'required|string']);
 
-        // Extract kegiatan id dari QR data
-        $url = $request->qr_data;
-        $kegiatanId = basename($url);
+        // BUG FIX: Menggunakan Regex untuk mencari angka ID di dalam URL
+        // Pola: mencari angka setelah kata "absensi/" dan sebelum "/form"
+        if (preg_match('/absensi\/(\d+)\/form/', $request->qr_data, $matches)) {
+            $kegiatanId = $matches[1];
+        } else {
+            // Fallback jika yang discan hanya angka ID biasa
+            $kegiatanId = (int) $request->qr_data;
+        }
 
-        $kegiatan = Kegiatan::findOrFail($kegiatanId);
+        $kegiatan = Kegiatan::find($kegiatanId);
 
-        // Cek apakah kegiatan masih berlangsung atau belum dimulai
+        if (!$kegiatan) {
+            return redirect()->back()->with('error', 'QR Code tidak valid atau kegiatan tidak ditemukan!');
+        }
+
         if ($kegiatan->status == 'batal') {
             return redirect()->back()->with('error', 'Kegiatan ini dibatalkan');
         }
@@ -230,20 +258,17 @@ class KegiatanController extends Controller
         return redirect()->route('absensi.form', $kegiatan);
     }
 
+    // ... (Fungsi absensiForm, absensiStore, absensiPublicStore, laporan, regenerateQrCode biarkan sama seperti asli Anda) ...
     public function absensiForm(Kegiatan $kegiatan)
     {
-        // Jika mode publik, langsung tampilkan form tanpa login
         if ($kegiatan->mode_absensi == 'public') {
-            // Cek apakah sudah absen berdasarkan IP
             $ipAddress = request()->ip();
             $sudahAbsen = Absensi::where('kegiatan_id', $kegiatan->id)
                 ->where('ip_address', $ipAddress)
                 ->exists();
-
             return view('admin.kegiatan.absensi-form-public', compact('kegiatan', 'sudahAbsen'));
         }
 
-        // Mode internal: harus login
         if (!Auth::check()) {
             return redirect()->route('login')->with('error', 'Silakan login untuk absen');
         }
@@ -267,8 +292,7 @@ class KegiatanController extends Controller
             ->exists();
 
         if ($sudahAbsen) {
-            return redirect()->route('kegiatan.show', $kegiatan)
-                ->with('error', 'Anda sudah melakukan absensi untuk kegiatan ini');
+            return redirect()->route('kegiatan.show', $kegiatan)->with('error', 'Anda sudah absensi.');
         }
 
         Absensi::create([
@@ -279,8 +303,7 @@ class KegiatanController extends Controller
             'keterangan' => $request->keterangan,
         ]);
 
-        return redirect()->route('kegiatan.show', $kegiatan)
-            ->with('success', 'Absensi berhasil dicatat');
+        return redirect()->route('kegiatan.show', $kegiatan)->with('success', 'Absensi berhasil dicatat');
     }
 
     public function absensiPublicStore(Request $request, Kegiatan $kegiatan)
@@ -292,32 +315,28 @@ class KegiatanController extends Controller
             'status' => 'required|in:hadir,izin,sakit',
         ]);
 
-        // Cek apakah sudah absen dari IP yang sama
-        $ipAddress = $request->ip();
         $sudahAbsen = Absensi::where('kegiatan_id', $kegiatan->id)
             ->where('nama_peserta', $request->nama)
             ->where('no_hp_peserta', $request->no_hp)
             ->exists();
 
         if ($sudahAbsen) {
-            return redirect()->route('absensi.form', $kegiatan)
-                ->with('error', 'Nama dan Nomor HP ini sudah tercatat hadir di sistem.');
+            return redirect()->route('absensi.form', $kegiatan)->with('error', 'Nama & No HP ini sudah tercatat.');
         }
 
-        // Simpan ke tabel absensi (user_id = NULL karena publik)
         Absensi::create([
             'kegiatan_id' => $kegiatan->id,
-            'user_id' => null, // <-- EXPLICITLY SET NULL
+            'user_id' => null,
             'nama_peserta' => $request->nama,
             'asal_peserta' => $request->asal,
             'no_hp_peserta' => $request->no_hp,
             'waktu_absen' => now(),
             'status' => $request->status,
             'keterangan' => 'Absen publik',
+            'ip_address' => $request->ip(), // Tambahan ip address agar pengecekan form public berfungsi
         ]);
 
-        return redirect()->route('absensi.form', $kegiatan)
-            ->with('success', 'Terima kasih, absensi Anda telah tercatat!');
+        return redirect()->route('absensi.form', $kegiatan)->with('success', 'Absensi Anda telah tercatat!');
     }
 
     public function laporan(Kegiatan $kegiatan)
@@ -325,6 +344,7 @@ class KegiatanController extends Controller
         $absensi = $kegiatan->absensi()->with('user')->get();
         return view('admin.kegiatan.laporan', compact('kegiatan', 'absensi'));
     }
+
     public function regenerateQrCode(Kegiatan $kegiatan)
     {
         $this->generateQrCode($kegiatan);

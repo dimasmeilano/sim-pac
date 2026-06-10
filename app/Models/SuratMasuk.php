@@ -5,10 +5,12 @@ namespace App\Models;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class SuratMasuk extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory, BelongsToOrganization, LogsActivity;
 
     protected $table = 'surat_masuk';
 
@@ -49,5 +51,14 @@ class SuratMasuk extends Model
             'selesai' => '<span class="badge badge-success">Selesai</span>',
         ];
         return $statuses[$this->status] ?? '-';
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Surat Masuk telah di-{$eventName}");
     }
 }

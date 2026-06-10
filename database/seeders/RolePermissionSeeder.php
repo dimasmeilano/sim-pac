@@ -49,6 +49,7 @@ class RolePermissionSeeder extends Seeder
             'manage_kegiatan',
             'view_kegiatan',
             'manage_progja',
+            'manage_role',
         ];
 
         foreach ($permissions as $permission) {

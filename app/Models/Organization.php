@@ -5,47 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 
 class Organization extends Model
 {
-    use HasFactory;
-
-    protected $fillable = [
-        'name',
-        'type',
-        'jenis_organisasi',
-        'periode',
-        'parent_id',
-        'alamat',
-        'kontak',
-        'stempel',
-        'email',
-        'website',
-        'logo',
-        'ketua_id',
-        'wakil_ketua_1_id',
-        'wakil_ketua_2_id',
-        'wakil_ketua_3_id',
-        'wakil_ketua_4_id',
-        'wakil_ketua_5_id',
-        'sekretaris_id',
-        'wakil_sekretaris_1_id',
-        'wakil_sekretaris_2_id',
-        'wakil_sekretaris_3_id',
-        'wakil_sekretaris_4_id',
-        'wakil_sekretaris_5_id',
-        'bendahara_id',
-        'wakil_bendahara_1_id',
-        'wakil_bendahara_2_id',
-        'wakil_bendahara_3_id',
-        'kop_surat_ipnu',
-        'kop_surat_ippnu',
-        'kop_surat_bersama',
-        'ttd_ketua',
-        'ttd_sekretaris',
-    ];
+    use HasFactory, LogsActivity;
+    protected $table = 'organizations';
+    protected $guarded = [];
 
     protected $casts = [
         'tgl_berakhir_sk' => 'date',
@@ -365,5 +334,14 @@ class Organization extends Model
     public function getStempelUrlAttribute()
     {
         return $this->stempel ? asset('storage/' . $this->stempel) : null;
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Organization telah di-{$eventName}");
     }
 }

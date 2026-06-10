@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\ProgramKerja;
 use App\Models\SubTugas;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -59,7 +60,9 @@ class ProgramKerjaController extends Controller
 
     public function create()
     {
-        return view('admin.progja.create');
+        // Super Admin butuh daftar organisasi untuk ditempatkan progjanya
+        $organizations = auth()->user()->hasRole('super_admin') ? \App\Models\Organization::all() : [];
+        return view('admin.progja.create', compact('organizations'));
     }
 
     public function store(Request $request)
@@ -67,21 +70,70 @@ class ProgramKerjaController extends Controller
         $request->validate([
             'nama' => 'required|string|max:200',
             'deskripsi' => 'nullable|string',
+            'jenis' => 'required|in:ipnu,ippnu,bersama',
             'tgl_mulai' => 'required|date',
             'tgl_selesai' => 'required|date|after_or_equal:tgl_mulai',
             'status' => 'required|in:planning,active,completed,cancelled',
+            'estimasi_anggaran' => 'nullable|numeric', // Validasi anggaran
         ]);
 
         $progja = ProgramKerja::create([
-            'organization_id' => auth()->user()->organization_id,
+            // Logika Pintar: Jika ada input organization_id dari Super Admin, pakai itu. Jika tidak, pakai milik user.
+            'organization_id' => $request->organization_id ?? auth()->user()->organization_id,
             'nama' => $request->nama,
+            'jenis' => $request->jenis,
             'deskripsi' => $request->deskripsi,
             'tgl_mulai' => $request->tgl_mulai,
             'tgl_selesai' => $request->tgl_selesai,
             'status' => $request->status,
+            'estimasi_anggaran' => $request->estimasi_anggaran ?? 0,
         ]);
 
         return redirect()->route('progja.show', $progja)->with('success', 'Program Kerja berhasil dibuat');
+    }
+
+    public function edit(ProgramKerja $progja)
+    {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
+        $organizations = auth()->user()->hasRole('super_admin') ? \App\Models\Organization::all() : [];
+        return view('admin.progja.edit', compact('progja', 'organizations'));
+    }
+
+    public function update(Request $request, ProgramKerja $progja)
+    {
+        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
+            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
+        }
+
+        $request->validate([
+            'nama' => 'required|string|max:200',
+            'deskripsi' => 'nullable|string',
+            'jenis' => 'required|in:ipnu,ippnu,bersama',
+            'tgl_mulai' => 'required|date',
+            'tgl_selesai' => 'required|date|after_or_equal:tgl_mulai',
+            'status' => 'required|in:planning,active,completed,cancelled',
+            'estimasi_anggaran' => 'nullable|numeric',
+        ]);
+
+        // Super Admin boleh memindah kepemilikan progja
+        if (auth()->user()->hasRole('super_admin') && $request->has('organization_id')) {
+            $progja->organization_id = $request->organization_id;
+        }
+
+        $progja->update([
+            'nama' => $request->nama,
+            'jenis' => $request->jenis,
+            'deskripsi' => $request->deskripsi,
+            'tgl_mulai' => $request->tgl_mulai,
+            'tgl_selesai' => $request->tgl_selesai,
+            'status' => $request->status,
+            'estimasi_anggaran' => $request->estimasi_anggaran ?? 0,
+        ]);
+
+        return redirect()->route('progja.show', $progja)->with('success', 'Program Kerja berhasil diupdate');
     }
 
     public function show(ProgramKerja $progja)
@@ -100,34 +152,6 @@ class ProgramKerjaController extends Controller
         $users = User::where('organization_id', $progja->organization_id)->orderBy('name')->get();
 
         return view('admin.progja.show', compact('progja', 'todos', 'progress', 'done', 'revisi', 'users'));
-    }
-
-    public function edit(ProgramKerja $progja)
-    {
-        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
-            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
-        }
-
-        return view('admin.progja.edit', compact('progja'));
-    }
-
-    public function update(Request $request, ProgramKerja $progja)
-    {
-        if (!auth()->user()->hasRole('super_admin') && $progja->organization_id != auth()->user()->organization_id) {
-            abort(403, 'Akses Ditolak! Ini adalah program kerja milik organisasi lain.');
-        }
-
-        $request->validate([
-            'nama' => 'required|string|max:200',
-            'deskripsi' => 'nullable|string',
-            'tgl_mulai' => 'required|date',
-            'tgl_selesai' => 'required|date|after_or_equal:tgl_mulai',
-            'status' => 'required|in:planning,active,completed,cancelled',
-        ]);
-
-        $progja->update($request->all());
-
-        return redirect()->route('progja.show', $progja)->with('success', 'Program Kerja berhasil diupdate');
     }
 
     public function destroy(ProgramKerja $progja)
@@ -292,5 +316,42 @@ class ProgramKerjaController extends Controller
                 ];
             })
         ]);
+    }
+
+    public function cetakLpj(ProgramKerja $programKerja)
+    {
+        // Pengecekan Keamanan Multi-Tenant
+        $user = auth()->user();
+        if (!$user->hasRole('super_admin') && $programKerja->organization_id != $user->organization_id) {
+            abort(403, 'Akses Ditolak!');
+        }
+
+        // Sedot SEMUA data terkait dengan Eager Loading agar database tidak jebol (N+1 safe)
+        $programKerja->load([
+            'organization',
+            'transaksis.createdBy',
+            // Sedot kegiatan beserta absensi, notulensi, dan galeri/foldernya
+            'kegiatans.absensi.user',
+            'kegiatans.notulensis.notulis',
+            'kegiatans.folders.galeris' // Berdasarkan arsitektur Google Drive kita sebelumnya
+        ]);
+
+        // Rekap Keuangan
+        $pemasukan = $programKerja->transaksis->where('jenis', 'masuk')->where('status_validasi', 'disetujui')->sum('nominal');
+        $pengeluaran = $programKerja->transaksis->where('jenis', 'keluar')->where('status_validasi', 'disetujui')->sum('nominal');
+        $saldo_akhir = $pemasukan - $pengeluaran;
+
+        // Render ke PDF
+        $pdf = Pdf::loadView('admin.progja.lpj_pdf', compact(
+            'programKerja',
+            'pemasukan',
+            'pengeluaran',
+            'saldo_akhir'
+        ));
+
+        // Atur ukuran kertas A4, margin standar laporan
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('LPJ_' . str_replace(' ', '_', $programKerja->nama) . '.pdf');
     }
 }

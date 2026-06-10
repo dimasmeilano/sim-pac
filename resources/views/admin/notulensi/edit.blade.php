@@ -12,6 +12,26 @@
             @csrf
             @method('PUT')
             <div class="card-body">
+                {{-- INJEKSI DROPDOWN KHUSUS SUPER ADMIN --}}
+                @if (auth()->user()->hasRole('super_admin'))
+                    <div class="col-md-12 mb-3">
+                        <div class="form-group border p-3 bg-light rounded border-warning">
+                            <label class="text-primary"><i class="fas fa-sitemap"></i> Pindah Kepemilikan Notulensi (Khusus
+                                Super Admin)</label>
+                            <select name="organization_id" class="form-control select2" required>
+                                @if (isset($organizations))
+                                    @foreach ($organizations as $org)
+                                        <option value="{{ $org->id }}"
+                                            {{ old('organization_id', $notulensi->organization_id) == $org->id ? 'selected' : '' }}>
+                                            {{ $org->nama ?? $org->name }} ({{ strtoupper($org->type ?? 'PAC') }})
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                    </div>
+                @endif
+                {{-- AKHIR INJEKSI --}}
                 <div class="row">
                     <div class="col-md-6">
                         <div class="form-group">

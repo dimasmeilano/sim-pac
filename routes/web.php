@@ -1,9 +1,15 @@
 <?php
 
+use App\Http\Controllers\Admin\ArtikelController;
+use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\CetakSuratController;
+use App\Http\Controllers\Admin\DokumenArsipController;
+use App\Http\Controllers\Admin\GaleriController;
 use App\Http\Controllers\Admin\InventarisController;
+use App\Http\Controllers\Admin\KategoriArtikelController;
 use App\Http\Controllers\Admin\KegiatanController;
 use App\Http\Controllers\Admin\KeuanganController;
+use App\Http\Controllers\Admin\LpjController;
 use App\Http\Controllers\Admin\MemberController;
 use App\Http\Controllers\Admin\MenuController;
 use App\Http\Controllers\Admin\NotulensiController;
@@ -17,8 +23,10 @@ use App\Http\Controllers\Admin\SignatureController;
 use App\Http\Controllers\Admin\SuratController;
 use App\Http\Controllers\Admin\SuratTemplateController;
 use App\Http\Controllers\Admin\TtdDigitalController;
+use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InstallerController;
+use App\Http\Middleware\AksesPengurus;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -50,11 +58,25 @@ Route::get('/', function () {
     return redirect('/install');
 });
 
+Route::get('drive/f/{token}', [GaleriController::class, 'publicFolder'])->name('galeri.public_folder');
+Route::post('drive/f/{token}/upload', [GaleriController::class, 'publicUpload'])->name('galeri.public_upload');
 Route::get('/pengajuan-rekomendasi', [PengajuanController::class, 'create'])->name('pengajuan.create');
 Route::post('/pengajuan-rekomendasi', [PengajuanController::class, 'store'])->name('pengajuan.store');
 
-// ============ ROUTES YANG MEMERLUKAN AUTH ============
+// ==========================================
+// RUTE KHUSUS ANGGOTA BIASA (Tembok Pembatas)
+// ==========================================
 Route::middleware(['auth'])->group(function () {
+    Route::get('/portal-anggota', function () {
+        return view('portal');
+    })->name('anggota.portal');
+});
+
+// ==========================================
+// RUTE ERP (HANYA UNTUK PENGURUS)
+// ==========================================
+// Bungkus rute dashboard dan semua rute modul Anda di dalam grup ini:
+Route::middleware(['auth', AksesPengurus::class])->group(function () {
 
     // Dashboard & Profile
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -81,6 +103,11 @@ Route::middleware(['auth'])->group(function () {
     });
     Route::middleware(['permission:manage_progja'])->group(function () {
         // Program Kerja (Kanban)
+        Route::get('lpj/create', [LpjController::class, 'create'])->name('lpj.create');
+        Route::post('lpj/store', [LpjController::class, 'store'])->name('lpj.store');
+        Route::get('lpj/{lpj}/edit', [LpjController::class, 'edit'])->name('lpj.edit');
+        Route::put('lpj/{lpj}', [LpjController::class, 'update'])->name('lpj.update');
+        Route::get('lpj/{lpj}/cetak', [LpjController::class, 'cetakLpjPdf'])->name('lpj.cetak');
         Route::resource('progja', ProgramKerjaController::class);
 
         // Routes Tugas
@@ -117,6 +144,9 @@ Route::middleware(['auth'])->group(function () {
     // Settings (Role & Menu Management)
     Route::middleware(['role:super_admin'])->group(function () {
         Route::prefix('settings')->group(function () {
+            Route::resource('user-role', UserRoleController::class)->parameters([
+                'user-role' => 'user_role'
+            ])->only(['index', 'edit', 'update']);
             Route::resource('roles', RoleController::class);
             Route::resource('menus', MenuController::class);
         });
@@ -205,5 +235,25 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/organisasi-saya', [PengaturanOrganisasiController::class, 'edit'])->name('organisasi.saya.edit');
             Route::put('/organisasi-saya', [PengaturanOrganisasiController::class, 'update'])->name('organisasi.saya.update');
         });
+
+        // ==========================================
+        // RUTE E-LIBRARY & REPOSITORY (ARSIP)
+        // ==========================================
+        Route::get('/dokumen', [DokumenArsipController::class, 'index'])->name('dokumen.index');
+        Route::post('/dokumen', [DokumenArsipController::class, 'store'])->name('dokumen.store');
+        Route::delete('/dokumen/{dokumen}', [DokumenArsipController::class, 'destroy'])->name('dokumen.destroy');
+        Route::get('/dokumen/{dokumen}/download', [DokumenArsipController::class, 'download'])->name('dokumen.download');
     });
+    Route::put('workspace/folder/{folder}', [GaleriController::class, 'updateFolder'])->name('galeri.folder.update');
+    Route::get('workspace', [GaleriController::class, 'index'])->name('galeri.index');
+    Route::post('workspace/folder', [GaleriController::class, 'storeFolder'])->name('galeri.folder.store');
+    Route::post('workspace/file', [GaleriController::class, 'storeFile'])->name('galeri.file.store');
+    Route::delete('workspace/file/{file}', [GaleriController::class, 'destroyFile'])->name('galeri.file.destroy');
+    Route::middleware(['role_or_permission:super_admin'])->group(function () {
+        Route::get('/audit-trail', [AuditTrailController::class, 'index'])->name('audit.index');
+    });
+    Route::resource('artikel', ArtikelController::class);
+    // Modul Kategori Artikel
+    Route::resource('kategori', KategoriArtikelController::class)
+        ->except(['create', 'show', 'edit']); // Kita kecualikan karena menggunakan sistem Modal (Pop-up)
 });

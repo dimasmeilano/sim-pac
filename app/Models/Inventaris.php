@@ -5,24 +5,16 @@ namespace App\Models;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Inventaris extends Model
 {
-    use HasFactory, BelongsToOrganization; // Jika trait ini ada, gunakan. Jika tidak, hapus saja "BelongsToOrganization"-nya.
+    use HasFactory, BelongsToOrganization, LogsActivity; // Jika trait ini ada, gunakan. Jika tidak, hapus saja "BelongsToOrganization"-nya.
 
     protected $table = 'inventaris';
 
-    protected $fillable = [
-        'organization_id',
-        'kode_barang',
-        'nama_barang',
-        'jumlah',
-        'kondisi',
-        'sumber_dana',
-        'tahun_perolehan',
-        'keterangan',
-        'foto_barang'
-    ];
+    protected $guarded = [];
 
     public function organization()
     {
@@ -39,5 +31,14 @@ class Inventaris extends Model
         } else {
             return '<span class="badge badge-danger px-2 py-1"><i class="fas fa-times-circle"></i> Rusak Berat</span>';
         }
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Rekam semua kolom
+            ->logOnlyDirty() // Hanya rekam kolom yang nilainya berubah (saat diedit)
+            ->dontSubmitEmptyLogs() // Jangan rekam kalau tidak ada perubahan
+            ->setDescriptionForEvent(fn(string $eventName) => "Data Inventaris telah di-{$eventName}");
     }
 }
