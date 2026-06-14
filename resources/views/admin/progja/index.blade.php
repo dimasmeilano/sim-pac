@@ -121,6 +121,10 @@
                                             title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        <a href="{{ route('progja.cetak-ringkasan', $progja->id) }}"
+                                            class="btn btn-sm btn-danger shadow-sm font-weight-bold" target="_blank">
+                                            <i class="fas fa-file-pdf mr-1"></i> Cetak Ringkasan Progja
+                                        </a>
                                         <form action="{{ route('progja.destroy', $progja->id) }}" method="POST"
                                             class="d-inline"
                                             onsubmit="return confirm('Apakah Anda yakin ingin menghapus program kerja ini?')">

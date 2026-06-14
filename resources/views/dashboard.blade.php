@@ -200,6 +200,52 @@
             </div>
         </div>
 
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5 class="font-weight-bold text-secondary border-bottom pb-2">Statistik Pengunjung Publik</h5>
+            </div>
+
+            <div class="col-md-3 col-sm-6 col-12">
+                <div class="info-box shadow-sm">
+                    <span class="info-box-icon bg-info"><i class="fas fa-users"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Pengunjung Hari Ini</span>
+                        <span class="info-box-number">{{ $statistik['unik_hari_ini'] }} <small>IP Unik</small></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 col-12">
+                <div class="info-box shadow-sm">
+                    <span class="info-box-icon bg-success"><i class="fas fa-chart-line"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Bulan Ini</span>
+                        <span class="info-box-number">{{ $statistik['unik_bulan_ini'] }} <small>IP Unik</small></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 col-12">
+                <div class="info-box shadow-sm">
+                    <span class="info-box-icon bg-primary"><i class="fas fa-globe"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Total Keseluruhan</span>
+                        <span class="info-box-number">{{ $statistik['unik_total'] }} <small>IP Unik</small></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3 col-sm-6 col-12">
+                <div class="info-box shadow-sm">
+                    <span class="info-box-icon bg-warning"><i class="fas fa-mouse-pointer text-white"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Total Klik (Hits) Hari Ini</span>
+                        <span class="info-box-number">{{ $statistik['hits_hari_ini'] }} <small>Halaman</small></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- AREA GRAFIK --}}
         <div class="row mt-4">
             <div class="col-md-8">
@@ -233,7 +279,8 @@
             <div class="col-12">
                 <div class="card card-warning shadow-sm border-warning">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="fas fa-clipboard-list mr-1"></i> Tugas Tertunda: Surat Menunggu Proses
+                        <h3 class="card-title"><i class="fas fa-clipboard-list mr-1"></i> Tugas Tertunda: Surat Menunggu
+                            Proses
                         </h3>
                     </div>
                     <div class="card-body table-responsive p-0">

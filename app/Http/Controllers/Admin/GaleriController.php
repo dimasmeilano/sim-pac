@@ -211,4 +211,18 @@ class GaleriController extends Controller
 
         return back()->with('success', 'Terima kasih! File Anda berhasil ditambahkan ke folder.');
     }
+
+    public function togglePublik(Request $request)
+    {
+        $galeri = \App\Models\Galeri::find($request->id);
+
+        if ($galeri) {
+            $galeri->tampil_di_publik = $request->status;
+            $galeri->save();
+
+            return response()->json(['success' => true, 'message' => 'Status foto berhasil diperbarui!']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Foto tidak ditemukan!']);
+    }
 }

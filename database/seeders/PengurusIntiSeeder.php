@@ -15,9 +15,13 @@ class PengurusIntiSeeder extends Seeder
         // ========== 1. PASTIKAN ROLE DAN PERMISSION ADA ==========
         $roles = [
             'ketua_pac',
-            'wakil_ketua_pac',
+            'wakil_ketua_1_pac', // Diubah
+            'wakil_ketua_2_pac', // Diubah
+            'wakil_ketua_3_pac', // Diubah
             'sekretaris_pac',
-            'wakil_sekretaris_pac',
+            'wakil_sekretaris_1_pac',
+            'wakil_sekretaris_2_pac',
+            'wakil_sekretaris_3_pac',
             'bendahara_pac',
             'wakil_bendahara_pac'
         ];
@@ -68,7 +72,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilKetua1->assignRole('wakil_ketua_pac');
+        $wakilKetua1->assignRole('wakil_ketua_1_pac'); // <-- UBAH DI SINI
 
         // Wakil Ketua 2
         $wakilKetua2 = User::firstOrCreate(
@@ -82,7 +86,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilKetua2->assignRole('wakil_ketua_pac');
+        $wakilKetua2->assignRole('wakil_ketua_2_pac'); // <-- UBAH DI SINI
 
         // Wakil Ketua 3
         $wakilKetua3 = User::firstOrCreate(
@@ -96,7 +100,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilKetua3->assignRole('wakil_ketua_pac');
+        $wakilKetua3->assignRole('wakil_ketua_3_pac'); // <-- UBAH DI SINI
 
         // Sekretaris
         $sekretaris = User::firstOrCreate(
@@ -124,7 +128,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilSekretaris1->assignRole('wakil_sekretaris_pac');
+        $wakilSekretaris1->assignRole('wakil_sekretaris_1_pac');
 
         // Wakil Sekretaris 2
         $wakilSekretaris2 = User::firstOrCreate(
@@ -138,7 +142,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilSekretaris2->assignRole('wakil_sekretaris_pac');
+        $wakilSekretaris2->assignRole('wakil_sekretaris_2_pac');
 
         // Wakil Sekretaris 3
         $wakilSekretaris3 = User::firstOrCreate(
@@ -152,7 +156,7 @@ class PengurusIntiSeeder extends Seeder
                 'organization_id' => $pac->id,
             ]
         );
-        $wakilSekretaris3->assignRole('wakil_sekretaris_pac');
+        $wakilSekretaris3->assignRole('wakil_sekretaris_3_pac');
 
         // Bendahara
         $bendahara = User::firstOrCreate(

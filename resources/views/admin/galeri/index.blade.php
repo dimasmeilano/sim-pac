@@ -148,44 +148,45 @@
                         @else
                             <div class="row">
                                 @forelse($files as $file)
-                                    <div class="col-md-3 col-sm-4 mb-4">
-                                        <div class="card h-100 border-0 shadow-sm rounded-lg overflow-hidden">
-                                            {{-- Thumbnail Preview --}}
-                                            <div class="bg-dark text-center position-relative" style="height: 140px;">
-                                                @if (in_array(pathinfo($file->file_path, PATHINFO_EXTENSION), ['jpg', 'jpeg', 'png']))
-                                                    <a href="{{ asset('storage/' . $file->file_path) }}" target="_blank">
-                                                        <img src="{{ asset('storage/' . $file->file_path) }}"
-                                                            alt="Preview"
-                                                            style="width: 100%; height: 100%; object-fit: cover;">
-                                                    </a>
-                                                @else
-                                                    <div
-                                                        class="d-flex align-items-center justify-content-center h-100 text-white">
-                                                        <i class="fas fa-file-alt fa-3x text-info"></i>
-                                                    </div>
-                                                @endif
+                                    <div class="col-md-3 col-sm-4 col-6 mb-4">
+                                        <div class="card shadow-sm h-100 border-0"
+                                            style="border-radius: 10px; overflow: hidden;">
+
+                                            <div class="position-relative"
+                                                style="height: 140px; background-color: #f8f9fa;">
+                                                <img src="{{ asset('storage/' . $file->file_path) }}" class="w-100 h-100"
+                                                    style="object-fit: cover;" alt="Preview">
                                             </div>
 
-                                            {{-- Detail File --}}
-                                            <div class="card-body p-2 text-center bg-white">
-                                                <p class="mb-1 font-weight-bold text-truncate" style="font-size: 13px;"
-                                                    title="{{ $file->nama_file }}">
+                                            <div class="p-2 border-bottom">
+                                                <h6 class="mb-1 text-truncate font-weight-bold text-dark"
+                                                    style="font-size: 13px;" title="{{ $file->nama_file }}">
                                                     {{ $file->nama_file }}
-                                                </p>
-                                                <div class="d-flex justify-content-between align-items-center px-1 mt-2">
-                                                    <small class="text-muted" style="font-size: 11px;"><i
-                                                            class="fas fa-user"></i>
-                                                        {{ strtok($file->uploader->name ?? 'Anonim', ' ') }}</small>
-                                                    <form action="{{ route('galeri.file.destroy', $file->id) }}"
-                                                        method="POST"
-                                                        onsubmit="return confirm('Hapus file ini permanen?')">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit"
-                                                            class="btn btn-xs btn-outline-danger py-0 px-1"><i
-                                                                class="fas fa-trash"></i></button>
-                                                    </form>
+                                                </h6>
+                                                <div class="text-muted" style="font-size: 11px;">
+                                                    <i class="fas fa-user-circle mr-1"></i>
+                                                    {{ $file->uploader->name ?? 'Anonim' }}
                                                 </div>
+                                            </div>
+
+                                            <div class="p-2 bg-light d-flex justify-content-between align-items-center">
+
+                                                <div class="custom-control custom-switch" style="padding-left: 2.25rem;">
+                                                    <input type="checkbox" class="custom-control-input toggle-publik"
+                                                        id="switch_{{ $file->id }}" data-id="{{ $file->id }}"
+                                                        {{ $file->tampil_di_publik ? 'checked' : '' }}>
+                                                    <label class="custom-control-label font-weight-bold text-primary"
+                                                        for="switch_{{ $file->id }}"
+                                                        style="cursor: pointer; font-size: 12px; padding-top: 2px;">
+                                                        Publik
+                                                    </label>
+                                                </div>
+
+                                                <button class="btn btn-sm btn-outline-danger p-1" style="line-height: 1;"
+                                                    title="Hapus File">
+                                                    <i class="fas fa-trash-alt" style="font-size: 12px; width: 16px;"></i>
+                                                </button>
+
                                             </div>
                                         </div>
                                     </div>
@@ -463,5 +464,34 @@
                 alert('Sukses! Link folder berhasil disalin. Silakan bagikan ke grup WhatsApp atau teman Anda.');
             });
         }
+    </script>
+    <script>
+        $(document).ready(function() {
+            // Mendeteksi ketika tombol toggle diklik
+            $('.toggle-publik').change(function() {
+                var status = $(this).prop('checked') ? 1 : 0; // Jika dicentang = 1, jika tidak = 0
+                var galeri_id = $(this).data('id'); // Mengambil ID foto
+
+                $.ajax({
+                    type: "POST",
+                    dataType: "json",
+                    url: '{{ route('galeri.toggle') }}', // URL tujuan
+                    data: {
+                        '_token': '{{ csrf_token() }}', // Token keamanan wajib Laravel
+                        'status': status,
+                        'id': galeri_id
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Opsional: Jika Anda pakai SweetAlert atau Toastr, bisa ditaruh di sini
+                            console.log(response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('Terjadi kesalahan sistem. Silakan muat ulang halaman.');
+                    }
+                });
+            });
+        });
     </script>
 @endpush

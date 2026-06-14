@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pengunjung;
 use App\Models\ProgramKerja;
 use App\Models\SuratKeluar;
 use App\Models\Transaksi;
@@ -72,6 +73,21 @@ class DashboardController extends Controller
         ])->latest()->take(5)->get();
         // Catatan: Jika nama status selesainya berbeda (misal: 'disetujui'), silakan diganti ya kata 'selesai'-nya.
 
+        // STATISTIK PENGUNJUNG WEBSITE
+        $hari_ini = date('Y-m-d');
+        $bulan_ini = date('m');
+        $tahun_ini = date('Y');
+
+        $statistik = [
+            // Pengunjung unik (berdasarkan IP per hari)
+            'unik_hari_ini' => Pengunjung::where('tanggal', $hari_ini)->count(),
+            'unik_bulan_ini' => Pengunjung::whereMonth('tanggal', $bulan_ini)->whereYear('tanggal', $tahun_ini)->count(),
+            'unik_total' => Pengunjung::count(),
+
+            // Total halaman yang dibuka (Page Views / Hits)
+            'hits_hari_ini' => Pengunjung::where('tanggal', $hari_ini)->sum('hits') ?? 0,
+        ];
+
         // 3. Kirim semua data ke View
         return view('dashboard', [
             'saldo_ipnu' => $saldoIpnu,
@@ -85,6 +101,7 @@ class DashboardController extends Controller
             'surat_menunggu' => $suratMenunggu,
             'surat_selesai' => $suratSelesai,
             'daftar_surat_menunggu' => $daftarSuratMenunggu,
+            'statistik' => $statistik,
         ]);
     }
 }

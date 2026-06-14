@@ -1,85 +1,55 @@
-<!DOCTYPE html>
-<html lang="id">
+@extends('layouts.public')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lacak Surat - SIM PAC IPNU IPPNU</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-    <style>
-        body {
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+@section('title', 'Pelacakan Surat Resmi')
 
-        .search-box {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-            width: 100%;
-            max-width: 600px;
-        }
+@section('content')
+    <div class="container mt-4 mb-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-lg border-0 rounded-lg">
+                    {{-- HEADER CARD SERAGAM --}}
+                    <div class="card-header bg-success text-white text-center py-4">
+                        <h3 class="font-weight-bold mb-0"><i class="fas fa-search mr-2"></i> Lacak Dokumen Resmi</h3>
+                        <p class="mb-0 mt-2 text-light">E-OFFICE Pimpinan Anak Cabang</p>
+                    </div>
 
-        .form-control-lg {
-            border-radius: 50px;
-            padding-left: 25px;
-        }
+                    <div class="card-body p-4 p-md-5 text-center">
+                        <p class="text-muted mb-4">Masukkan nomor surat untuk melacak status dan memvalidasi keaslian dokumen
+                            di dalam sistem.</p>
 
-        .btn-lacak {
-            border-radius: 50px;
-            padding: 10px 30px;
-            font-weight: bold;
-        }
-    </style>
-</head>
+                        <form id="formLacak" action="{{ route('verifikasi.surat') }}" method="GET"
+                            onsubmit="event.preventDefault(); prosesLacak();">
+                            <div class="form-group mb-4">
+                                <input type="text" id="nomorInput"
+                                    class="form-control form-control-lg text-center font-weight-bold text-success shadow-sm"
+                                    placeholder="Contoh: 024/PAC/SRP/7354/XVI/V/26" style="border: 2px solid #28a745;"
+                                    required autocomplete="off">
+                                <input type="hidden" name="nomor" id="nomorHidden">
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg btn-block shadow-sm font-weight-bold">
+                                <i class="fas fa-search mr-1"></i> Lacak Dokumen
+                            </button>
+                        </form>
 
-<body>
+                        <hr class="my-4">
 
-    <div class="container">
-        <div class="search-box mx-auto text-center">
-            <h2 class="font-weight-bold text-success mb-2">E-OFFICE PAC</h2>
-            <p class="text-muted mb-4">Masukkan nomor surat untuk melacak status dan memvalidasi keaslian dokumen.</p>
-
-            <form id="formLacak" action="{{ route('verifikasi.surat') }}" method="GET"
-                onsubmit="event.preventDefault(); prosesLacak();">
-                <div class="form-group mb-4">
-                    <input type="text" id="nomorInput" class="form-control form-control-lg text-center"
-                        placeholder="Contoh: 024/PAC/SRP/7354/XVI/V/26" required autocomplete="off">
-
-                    <input type="hidden" name="nomor" id="nomorHidden">
+                        <div class="text-muted small">
+                            <i class="fas fa-qrcode fa-2x mb-2"></i><br>
+                            Atau gunakan kamera <i>smartphone</i> Anda untuk men-<i>scan</i> QR Code yang tertera pada
+                            bagian bawah surat yang dicetak.
+                        </div>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-success btn-lg btn-lacak shadow-sm">
-                    🔍 Lacak Dokumen
-                </button>
-            </form>
-
-            <script>
-                function prosesLacak() {
-                    // 1. Ambil teks yang diketik user
-                    let inputText = document.getElementById('nomorInput').value;
-
-                    // 2. Ubah menjadi Base64 (btoa adalah fungsi bawaan JS)
-                    let base64Text = btoa(inputText);
-
-                    // 3. Masukkan hasil Base64 ke input tersembunyi
-                    document.getElementById('nomorHidden').value = base64Text;
-
-                    // 4. Kirim form ke server
-                    document.getElementById('formLacak').submit();
-                }
-            </script>
-            <div class="mt-4 text-muted small">
-                Atau gunakan kamera <i>smartphone</i> Anda untuk men-<i>scan</i> QR Code yang tertera pada bagian bawah
-                surat.
             </div>
         </div>
     </div>
 
-</body>
-
-</html>
+    <script>
+        function prosesLacak() {
+            let inputText = document.getElementById('nomorInput').value;
+            let base64Text = btoa(inputText);
+            document.getElementById('nomorHidden').value = base64Text;
+            document.getElementById('formLacak').submit();
+        }
+    </script>
+@endsection

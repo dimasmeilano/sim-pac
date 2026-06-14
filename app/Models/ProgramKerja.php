@@ -79,6 +79,25 @@ class ProgramKerja extends Model
         return $this->belongsTo(Message::class, 'reply_to_id'); // Ganti Message::class dengan nama Model Anda jika berbeda
     }
 
+    // 1. Relasi ke Foldernya
+    public function workspaceFolders()
+    {
+        return $this->hasMany(\App\Models\WorkspaceFolder::class, 'kegiatan_id');
+    }
+
+    // 2. Relasi LANGSUNG nembus ke Foto (Galeri) melewati Folder
+    public function fotoPublik()
+    {
+        return $this->hasManyThrough(
+            Galeri::class,
+            WorkspaceFolder::class,
+            'kegiatan_id',
+            'workspace_folder_id',
+            'id',
+            'id'
+        )->where('galeris.tampil_di_publik', true); // Filter ajaibnya ada di sini
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

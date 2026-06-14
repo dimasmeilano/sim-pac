@@ -1,0 +1,51 @@
+/* =========================================
+   SIM PAC IPNU IPPNU - CUSTOM THEME
+   ========================================= */
+
+:root {
+    --nu-green: #006b3f;      /* Hijau wibawa khas organisasi */
+    --nu-green-light: #009357; 
+    --bg-light: #f8f9fa;
+    --text-dark: #212529;
+}
+
+body {
+    font-family: 'Inter', sans-serif; /* Font isi yang bersih */
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+}
+
+/* Tipografi Judul */
+h1, h2, h3, h4, h5, h6, .font-serif, .navbar-brand {
+    font-family: 'Merriweather', serif; /* Font judul seperti koran */
+    font-weight: 700;
+}
+
+/* Utilitas Warna Custom */
+.bg-nu { background-color: var(--nu-green) !important; color: #ffffff; }
+.text-nu { color: var(--nu-green) !important; }
+.btn-nu { background-color: var(--nu-green); color: white; transition: 0.3s; border: none; }
+.btn-nu:hover { background-color: var(--nu-green-light); color: white; }
+
+/* Efek Kartu Berita Premium */
+.card-news {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background-color: #fff;
+    overflow: hidden;
+}
+.card-news:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+/* Pengatur Gambar */
+.hero-img { height: 400px; object-fit: cover; width: 100%; border-radius: 10px; }
+.side-news-img { height: 90px; width: 110px; object-fit: cover; border-radius: 8px; }
+.grid-news-img { height: 200px; object-fit: cover; width: 100%; }
+
+/* Link Berita */
+a.news-title { color: var(--text-dark); text-decoration: none; transition: color 0.2s; }
+a.news-title:hover { color: var(--nu-green); }

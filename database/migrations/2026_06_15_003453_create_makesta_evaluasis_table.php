@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('makesta_evaluasis', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('makesta_peserta_id')->constrained('makesta_pesertas')->onDelete('cascade');
+
+            $table->integer('hari_ke')->default(1);
+            // Menyimpan jenis evaluasi (pemateri / panitia / instruktur / refleksi)
+            $table->string('tipe_evaluasi');
+
+            // Menyimpan data isian dalam bentuk Array/JSON agar fleksibel
+            $table->text('data_evaluasi');
+
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('makesta_evaluasis');
+    }
+};

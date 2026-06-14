@@ -202,12 +202,86 @@
     </div>
 
     {{-- TTD PENUTUP --}}
-    <table class="table-ttd" style="margin-top: 50px;">
-        <tr>
-            <td>Ketua Panitia<br><br><br><br><strong><u>{{ strtoupper($lpj->nama_ketua_panitia) }}</u></strong></td>
-            <td>Sekretaris Panitia<br><br><br><br><strong><u>{{ strtoupper($lpj->nama_sekretaris) }}</u></strong></td>
-        </tr>
-    </table>
+    @php
+        \Carbon\Carbon::setLocale('id');
+        // 1. Ambil nama organisasi penuh (misal: "PAC IPNU KEBOMAS" dari kolom 'nama' atau 'name')
+        // Silakan sesuaikan 'nama' dengan nama kolom yang benar di tabel organizations Anda
+        $nama_organisasi = strtoupper($programKerja->organization->name ?? 'PAC IPNU KEBOMAS');
+
+        // 2. Tentukan Tingkatan berdasarkan singkatan di nama organisasi
+        if (str_contains($nama_organisasi, 'PR ') || str_contains($nama_organisasi, 'RANTING')) {
+            $teks_pimpinan = 'Pimpinan Ranting';
+            $teks_label = 'Ranting';
+        } elseif (str_contains($nama_organisasi, 'PK ') || str_contains($nama_organisasi, 'KOMISARIAT')) {
+            $teks_pimpinan = 'Pimpinan Komisariat';
+            $teks_label = 'Komisariat';
+        } else {
+            // Default jika mendeteksi PAC atau tidak terdeteksi keduanya
+            $teks_pimpinan = 'Pimpinan Anak Cabang';
+            $teks_label = 'Kecamatan';
+        }
+
+        // 3. Ekstrak Nama Wilayah dengan membuang atribut organisasi
+        // Kata-kata di bawah ini akan dihapus dari string
+        $kata_buang = [
+            'PAC',
+            'PR',
+            'PK',
+            'IPNU-IPPNU',
+            'IPNU',
+            'IPPNU',
+            'PIMPINAN ANAK CABANG',
+            'PIMPINAN RANTING',
+            'PIMPINAN KOMISARIAT',
+            '-',
+        ];
+
+        // Ganti kata-kata di atas dengan string kosong, lalu hilangkan spasi berlebih di awal/akhir
+        $nama_wilayah = trim(str_replace($kata_buang, '', $nama_organisasi));
+
+        // Rapikan kapitalisasi hurufnya (contoh: "KEBOMAS" menjadi "Kebomas")
+        $nama_wilayah = ucwords(strtolower($nama_wilayah));
+    @endphp
+
+    <div style="page-break-inside: avoid; margin-top: 40px; font-family: 'Times New Roman', serif;">
+
+        <table style="width: 100%; border: none; margin-bottom: 10px;">
+            <tr>
+                <td style="width: 60%; border: none;"></td>
+                <td style="width: 40%; text-align: center; border: none;">
+                    {{ $nama_wilayah }}, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}
+                </td>
+            </tr>
+        </table>
+
+        <div style="text-align: center; font-weight: bold; margin-bottom: 30px; line-height: 1.3;">
+            Panitia Pelaksana {{ $programKerja->nama ?? 'Kegiatan' }}<br>
+            {{ $teks_pimpinan }}<br>
+            Ikatan Pelajar Nahdlatul Ulama<br>
+            Ikatan Pelajar Putri Nahdlatul Ulama<br>
+            {{ $teks_label }} {{ $nama_wilayah }}
+        </div>
+
+        <table style="width: 100%; text-align: center; border-collapse: collapse; border: none;">
+            <tr>
+                <td style="width: 50%; padding: 0; border: none;">Ketua Panitia</td>
+                <td style="width: 50%; padding: 0; border: none;">Sekretaris Panitia</td>
+            </tr>
+            <tr>
+                <td style="height: 80px; border: none;"></td>
+                <td style="height: 80px; border: none;"></td>
+            </tr>
+            <tr>
+                <td style="padding: 0; border: none;">
+                    <b><u>{{ $lpj->ketua_panitia ?? '( Nama Ketua Panitia )' }}</u></b>
+                </td>
+                <td style="padding: 0; border: none;">
+                    <b><u>{{ $lpj->sekretaris_panitia ?? '( Nama Sekretaris )' }}</u></b>
+                </td>
+            </tr>
+        </table>
+
+    </div>
 
 
     {{-- LAMPIRAN 1: ABSENSI --}}
@@ -215,7 +289,8 @@
     <div class="text-center kop-teks mb-4">LAMPIRAN I<br>DAFTAR HADIR KEGIATAN</div>
     @foreach ($programKerja->kegiatans ?? [] as $keg)
         <div style="font-weight: bold; margin-bottom: 5px;">{{ $keg->nama }}
-            ({{ $keg->tgl_mulai ? $keg->tgl_mulai->format('d/m/Y') : '-' }})</div>
+            ({{ $keg->tgl_mulai ? $keg->tgl_mulai->format('d/m/Y') : '-' }})
+        </div>
         <table class="table-border" style="margin-bottom: 20px;">
             <thead>
                 <tr>
@@ -298,18 +373,12 @@
     {{-- LAMPIRAN 5: DOKUMENTASI (4 FOTO) --}}
     <div class="page-break"></div>
     <div class="text-center kop-teks mb-4">LAMPIRAN V<br>DOKUMENTASI KEGIATAN</div>
-    <div class="text-center">
-        @if ($lpj->foto_dokumentasi_terpilih && is_array($lpj->foto_dokumentasi_terpilih))
-            @foreach ($lpj->foto_dokumentasi_terpilih as $path)
-                @php $imagePath = storage_path('app/public/' . $path); @endphp
-                @if (file_exists($imagePath))
-                    <div style="display: inline-block; width: 45%; margin: 2%; border: 1px solid #000; padding: 5px;">
-                        <img src="{{ $imagePath }}" style="width: 100%; height: 200px; object-fit: cover;">
-                    </div>
-                @endif
+    <div class="row mt-3">
+        @if ($kegiatan && $kegiatan->dokumentasi)
+            @foreach ($kegiatan->dokumentasi->take(4) as $foto)
             @endforeach
         @else
-            <div style="margin-top: 50px; color: #666;"><em>Tidak ada foto dokumentasi terpilih.</em></div>
+            <p>Belum ada dokumentasi.</p>
         @endif
     </div>
 

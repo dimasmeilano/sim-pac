@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Kegiatan;
 use App\Models\Lpj;
 use App\Models\ProgramKerja;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -52,14 +53,18 @@ class LpjController extends Controller
     // 3. Cetak LPJ ke PDF
     public function cetakLpjPdf(Lpj $lpj)
     {
-        // Sedot seluruh data terkait agar proses cetak lancar
+        // 1. Sedot seluruh data terkait agar proses cetak lancar
         $lpj->load([
             'programKerja.organization',
             'programKerja.transaksis.createdBy',
-            'programKerja.kegiatans.absensis.user'
+            'programKerja.kegiatans.absensi.user' // Data kegiatan dan absensi SUDAH TERSEDOT di sini
         ]);
 
         $programKerja = $lpj->programKerja;
+
+        // 2. SOLUSI ERROR: Ambil data kegiatan dari relasi yang sudah diload di atas
+        // Menggunakan ->first() jika 1 Proker = 1 Kegiatan Utama
+        $kegiatan = $programKerja->kegiatans->first();
 
         // Pengecekan Keamanan Multi-Tenant
         $user = auth()->user();
@@ -77,12 +82,31 @@ class LpjController extends Controller
             'programKerja',
             'pemasukan',
             'pengeluaran',
-            'saldo_akhir'
+            'saldo_akhir',
+            'kegiatan'
         ));
 
         // Format kertas A4
         $pdf->setPaper('A4', 'portrait');
 
         return $pdf->download('LPJ_' . str_replace(' ', '_', $programKerja->nama) . '.pdf');
+    }
+
+    public function cetakRingkasanPdf($id)
+    {
+        // Tarik data kegiatan beserta relasi yang dibutuhkan
+        $kegiatan = \App\Models\Kegiatan::with(['proker.organization', 'keuangan', 'absensis'])->findOrFail($id);
+
+        // Hitung rekap singkat
+        $totalPengeluaran = $kegiatan->keuangan->where('jenis', 'pengeluaran')->sum('nominal');
+        $totalPeserta = $kegiatan->absensis->count();
+
+        // Load view PDF
+        $pdf = Pdf::loadView('admin.kegiatan.ringkasan_pdf', compact('kegiatan', 'totalPengeluaran', 'totalPeserta'));
+
+        // Format kertas A4
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Ringkasan_Kegiatan_' . str_replace(' ', '_', $kegiatan->nama_kegiatan) . '.pdf');
     }
 }

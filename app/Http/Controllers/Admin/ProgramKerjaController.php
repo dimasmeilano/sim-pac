@@ -354,4 +354,42 @@ class ProgramKerjaController extends Controller
 
         return $pdf->download('LPJ_' . str_replace(' ', '_', $programKerja->nama) . '.pdf');
     }
+
+    public function cetakRingkasanPdf($id)
+    {
+        // 1. Tarik data Progja beserta seluruh "anak-anaknya"
+        $programKerja = ProgramKerja::with([
+            'organization',
+            'kegiatans.absensi',
+            'transaksis'
+        ])->findOrFail($id);
+
+        // 2. TAMBAHAN BARU: Tarik data LPJ yang berelasi dengan Program Kerja ini
+        $lpj = \App\Models\Lpj::where('program_kerja_id', $id)->first();
+
+        // 3. Rekap Keuangan Tingkat Progja
+        $pemasukan = $programKerja->transaksis->where('jenis', 'masuk')->where('status_validasi', 'disetujui')->sum('nominal');
+        $pengeluaran = $programKerja->transaksis->where('jenis', 'keluar')->where('status_validasi', 'disetujui')->sum('nominal');
+        $saldo = $pemasukan - $pengeluaran;
+
+        // 4. Rekap Total Peserta
+        $totalPeserta = 0;
+        foreach ($programKerja->kegiatans as $kegiatan) {
+            $totalPeserta += $kegiatan->absensi->count();
+        }
+
+        // 5. Load View PDF (JANGAN LUPA TAMBAHKAN 'lpj' DI DALAM COMPACT)
+        $pdf = Pdf::loadView('admin.progja.ringkasan_pdf', compact(
+            'programKerja',
+            'pemasukan',
+            'pengeluaran',
+            'saldo',
+            'totalPeserta',
+            'lpj' // <-- Variabel ini yang ditunggu-tunggu oleh file PDF
+        ));
+
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('Ringkasan_Progja_' . str_replace(' ', '_', $programKerja->nama) . '.pdf');
+    }
 }
