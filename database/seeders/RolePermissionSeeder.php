@@ -271,7 +271,8 @@ class RolePermissionSeeder extends Seeder
             'view_surat',
             'sign_surat',
             'view_keuangan',
-            'view_dokumen'
+            'view_dokumen',
+            'manage_surat',
         ]);
 
         // --- WAKIL KETUA RANTING ---

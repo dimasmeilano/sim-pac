@@ -131,7 +131,7 @@
 
 
     {{-- ========================================================== --}}
-    {{-- 3. ZONA UMUM: WIDGET YANG BISA DILIHAT PAC & RANTING       --}}
+    {{-- 3. ZONA UMUM: WIDGET YANG BISA DILIHAT PAC & RANTING        --}}
     {{-- ========================================================== --}}
     @hasanyrole('super_admin|ketua_pac|sekretaris_pac|bendahara_pac|ketua_ranting|sekretaris_ranting|bendahara_ranting')
 
@@ -246,9 +246,56 @@
             </div>
         </div>
 
+        {{-- ========================================================== --}}
+        {{-- POSISI BARU WIDGET KLASTERISASI: DI ATAS GRAFIK & DI DALAM ROW --}}
+        {{-- ========================================================== --}}
+        @hasanyrole('super_admin|ketua_pac|sekretaris_pac')
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card card-success shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h3 class="card-title font-weight-bold"><i class="fas fa-layer-group mr-1"></i> Sebaran Klasterisasi
+                                Ranting</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="info-box bg-success">
+                                        <span class="info-box-icon"><i class="fas fa-star"></i></span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Kluster 1 (Utama)</span>
+                                            <span class="info-box-number">{{ $jumlah_klaster_1 ?? 0 }} Ranting</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="info-box bg-info">
+                                        <span class="info-box-icon"><i class="fas fa-check"></i></span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Kluster 2 (Sedang)</span>
+                                            <span class="info-box-number">{{ $jumlah_klaster_2 ?? 0 }} Ranting</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="info-box bg-warning">
+                                        <span class="info-box-icon"><i class="fas fa-exclamation text-white"></i></span>
+                                        <div class="info-box-content">
+                                            <span class="info-box-text">Kluster 3 (Binaan)</span>
+                                            <span class="info-box-number">{{ $jumlah_klaster_3 ?? 0 }} Ranting</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endhasanyrole
+
         {{-- AREA GRAFIK --}}
         <div class="row mt-4">
-            <div class="col-md-8">
+            <div class="col-lg-5 col-md-12 mb-4">
                 <div class="card card-primary shadow-sm">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-chart-bar mr-1"></i> Grafik Arus Kas</h3>
@@ -272,7 +319,23 @@
                     </div>
                 </div>
             </div>
+            {{-- WIDGET BARU: Grafik Akreditasi (Hanya untuk PAC) --}}
+            @hasanyrole('super_admin|ketua_pac')
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card shadow-sm h-100" style="border-top: 3px solid #6f42c1;">
+                        <div class="card-header text-white" style="background-color: #6f42c1;">
+                            <h3 class="card-title"><i class="fas fa-award mr-1"></i> Hasil Akreditasi</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="akreditasiChart"
+                                style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            @endhasanyrole
         </div>
+
+
 
         {{-- AREA TABEL SURAT --}}
         <div class="row mt-3">
@@ -280,8 +343,7 @@
                 <div class="card card-warning shadow-sm border-warning">
                     <div class="card-header">
                         <h3 class="card-title"><i class="fas fa-clipboard-list mr-1"></i> Tugas Tertunda: Surat Menunggu
-                            Proses
-                        </h3>
+                            Proses</h3>
                     </div>
                     <div class="card-body table-responsive p-0">
                         <table class="table table-hover table-striped text-nowrap">
@@ -383,6 +445,41 @@
                     maintainAspectRatio: false
                 }
             });
+
+            // GRAFIK AKREDITASI (Donut Chart)
+            const canvasAkreditasi = document.getElementById('akreditasiChart');
+            if (canvasAkreditasi) {
+                const ctxAkreditasi = canvasAkreditasi.getContext('2d');
+                new Chart(ctxAkreditasi, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Predikat A', 'Predikat B', 'Predikat C', 'Predikat D'],
+                        datasets: [{
+                            data: [
+                                {{ $akreditasi_A ?? 0 }},
+                                {{ $akreditasi_B ?? 0 }},
+                                {{ $akreditasi_C ?? 0 }},
+                                {{ $akreditasi_D ?? 0 }}
+                            ],
+                            // Warna: Hijau (A), Biru (B), Kuning (C), Merah (D)
+                            backgroundColor: ['#28a745', '#17a2b8', '#ffc107', '#dc3545'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom', // Agar labelnya rapi di bawah chart
+                                labels: {
+                                    boxWidth: 12
+                                }
+                            }
+                        }
+                    }
+                });
+            }
         });
     </script>
 @endpush

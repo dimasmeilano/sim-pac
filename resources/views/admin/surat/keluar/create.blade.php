@@ -125,7 +125,7 @@
                                 <option value="">-- Pilih Organisasi --</option>
                                 @if (isset($organizations))
                                     @foreach ($organizations as $org)
-                                        <option value="{{ $org->id }}">{{ $org->nama }}</option>
+                                        <option value="{{ $org->id }}">{{ $org->name }}</option>
                                     @endforeach
                                 @endif
                             </select>

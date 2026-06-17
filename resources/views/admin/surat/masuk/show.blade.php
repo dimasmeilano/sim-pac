@@ -63,7 +63,15 @@
                             </tr>
                             <tr>
                                 <th class="text-muted">Ringkasan / Isi</th>
-                                <td>{{ $suratMasuk->isi_surat ?: '-' }}</td>
+                                <td>
+                                    @if ($suratMasuk->isi_surat)
+                                        <div class="card p-3" style="background: #f8f9fa; border: 1px solid #dee2e6;">
+                                            {!! $suratMasuk->isi_surat !!}
+                                        </div>
+                                    @else
+                                        -
+                                    @endif
+                                </td>
                             </tr>
                         </tbody>
                     </table>

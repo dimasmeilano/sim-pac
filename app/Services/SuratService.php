@@ -113,7 +113,14 @@ class SuratService
 
         // Ambil Nama Teks (NAMA HARUS SELALU MUNCUL MESKI DRAFT)
         $namaKetua = strtoupper($org->ketua->name ?? '......................');
+        $namaSekretaris = strtoupper($org->sekretaris->name ?? '......................'); // <-- TAMBAHAN BARU
+
         $namaKetuaPartner = strtoupper($partnerOrg->ketua->name ?? '......................');
+        $namaSekretarisPartner = strtoupper($partnerOrg->sekretaris->name ?? '......................'); // <-- TAMBAHAN BARU
+
+        // LAKUKAN REPLACE TEKS NAMA KETUA & SEKRETARIS (Mandiri) <-- TAMBAHAN BARU
+        $isiSuratMentah = str_replace('{nama_ketua}', $namaKetua, $isiSuratMentah);
+        $isiSuratMentah = str_replace('{nama_sekretaris}', $namaSekretaris, $isiSuratMentah);
 
         // 3B. JIKA STATUS SELESAI, BARU TARIK GAMBARNYA!
         if ($statusValidasi === 'selesai') {
@@ -153,6 +160,26 @@ class SuratService
             $isiSuratMentah = str_replace('[STEMPEL_IPNU]', $imgStempelPartner, $isiSuratMentah);
             $isiSuratMentah = str_replace('{nama_ketua_ipnu}', $namaKetuaPartner, $isiSuratMentah);
         }
+
+        // ====================================================================
+        // 3E. RENDER QR CODE (HANYA JIKA SELESAI)
+        // ====================================================================
+        $qrCodeHtml = '';
+        if ($statusValidasi === 'selesai') {
+            $linkValidasi = route('verifikasi.surat', ['nomor' => base64_encode($nomorSurat)]);
+
+            try {
+                // Menggunakan Library QR Code Bawaan Laravel (100% Offline & Anti Gagal)
+                $qrImage = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')->size(80)->margin(0)->generate($linkValidasi);
+                $qrBase64 = 'data:image/png;base64,' . base64_encode($qrImage);
+                $qrCodeHtml = '<img src="' . $qrBase64 . '" style="width: 75px; height: 75px;" />';
+            } catch (\Exception $e) {
+                $qrCodeHtml = '';
+            }
+        }
+
+        // Timpa teks [QR_TTE] dengan gambar QR
+        $isiSuratMentah = str_replace('[QR_TTE]', $qrCodeHtml, $isiSuratMentah);
 
         // ====================================================================
         // 4. SAPU BERSIH SISA PLACEHOLDER
@@ -245,7 +272,7 @@ class SuratService
             </td>
             <td style="vertical-align: top; border: none; padding-left: 15px; font-size: 10px; color: #333; line-height: 1.4;">
                 <i><b>Validasi Keaslian Dokumen:</b><br>
-                Surat ini telah ditandatangani secara elektronik oleh Ketua PAC IPNU-IPPNU.<br>
+                Surat ini telah ditandatangani secara elektronik oleh Ketua {tingkat_organisasi_upper} IPNU-IPPNU {nama_wilayah_upper}.<br>
                 Scan QR Code di samping untuk memastikan keaslian surat melalui sistem.</i>
             </td>
         </tr>
@@ -304,7 +331,7 @@ class SuratService
             </td>
             <td style="vertical-align: top; border: none; padding-left: 15px; font-size: 10px; color: #333; line-height: 1.4;">
                 <i><b>Validasi Keaslian Dokumen:</b><br>
-                Surat ini telah ditandatangani secara elektronik oleh Ketua PAC IPNU-IPPNU.<br>
+                Surat ini telah ditandatangani secara elektronik oleh Ketua {tingkat_organisasi_upper} IPNU-IPPNU {nama_wilayah_upper}.<br>
                 Scan QR Code di samping untuk memastikan keaslian surat melalui sistem.</i>
             </td>
         </tr>
@@ -347,7 +374,7 @@ class SuratService
             </td>
             <td style="vertical-align: top; border: none; padding-left: 15px; font-size: 10px; color: #333; line-height: 1.4;">
                 <i><b>Validasi Keaslian Dokumen:</b><br>
-                Surat ini telah ditandatangani secara elektronik oleh Ketua PAC IPNU-IPPNU.<br>
+                Surat ini telah ditandatangani secara elektronik oleh Ketua {tingkat_organisasi_upper} IPNU-IPPNU {nama_wilayah_upper}.<br>
                 Scan QR Code di samping untuk memastikan keaslian surat melalui sistem.</i>
             </td>
         </tr>

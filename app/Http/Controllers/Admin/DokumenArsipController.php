@@ -14,21 +14,19 @@ class DokumenArsipController extends Controller
     {
         $kategori = $request->get('kategori', 'repository');
 
-        $query = DokumenArsip::where('kategori', $kategori);
+        // KODE BARU: Membuka kunci Global Scope SESAAT agar bisa menarik dokumen berstatus "Publik" dari PAC/Ranting lain
+        $query = DokumenArsip::withoutGlobalScope('organization')->where('kategori', $kategori);
 
         if (!auth()->user()->hasRole('super_admin')) {
             $query->where(function ($q) {
                 $q->where('organization_id', auth()->user()->organization_id)
-                    ->orWhere('hak_akses', 'publik');
+                    ->orWhere('hak_akses', 'publik'); // Trik sakti membuka akses publik
             });
         }
 
         $dokumen = $query->latest()->get();
-
-        // TAMBAHAN: Ambil data organisasi khusus untuk Super Admin
         $organizations = auth()->user()->hasRole('super_admin') ? \App\Models\Organization::all() : [];
 
-        // Jangan lupa tambahkan 'organizations' di compact
         return view('admin.dokumen.index', compact('dokumen', 'kategori', 'organizations'));
     }
 
@@ -44,9 +42,8 @@ class DokumenArsipController extends Controller
         $file = $request->file('file_dokumen');
         $namaFileOri = $file->getClientOriginalName();
         $tipeFile = $file->getClientOriginalExtension();
-        $ukuranFile = round($file->getSize() / 1024); // Convert ke KB
+        $ukuranFile = round($file->getSize() / 1024);
 
-        // Simpan file ke folder private secara aman (storage/app/arsip_dokumen)
         $path = $file->storeAs('arsip_dokumen', time() . '_' . str_replace(' ', '_', $namaFileOri));
 
         DokumenArsip::create([
@@ -64,11 +61,12 @@ class DokumenArsipController extends Controller
         return back()->with('success', 'Dokumen berhasil diunggah ke sistem!');
     }
 
-    public function download(DokumenArsip $dokumen)
+    public function download($id)
     {
-        // Proteksi Gembok Akses
+        // Pakai FindOrFail tanpa Global Scope agar user tetap bisa klik tombol download pada dokumen publik org lain
+        $dokumen = DokumenArsip::withoutGlobalScope('organization')->findOrFail($id);
+
         if (!auth()->user()->hasRole('super_admin')) {
-            // 1. Jika dokumen rahasia, hanya ketua/sekretaris organisasi itu yang boleh download
             if ($dokumen->hak_akses == 'rahasia') {
                 if (
                     $dokumen->organization_id != auth()->user()->organization_id ||
@@ -76,9 +74,7 @@ class DokumenArsipController extends Controller
                 ) {
                     abort(403, 'Akses Ditolak! Dokumen ini bersifat RAHASIA.');
                 }
-            }
-            // 2. Jika internal, hanya anggota organisasi tersebut yang boleh download
-            elseif ($dokumen->hak_akses == 'internal' && $dokumen->organization_id != auth()->user()->organization_id) {
+            } elseif ($dokumen->hak_akses == 'internal' && $dokumen->organization_id != auth()->user()->organization_id) {
                 abort(403, 'Akses Ditolak! Dokumen ini hanya untuk internal organisasi pemilik.');
             }
         }
@@ -92,11 +88,8 @@ class DokumenArsipController extends Controller
 
     public function destroy(DokumenArsip $dokumen)
     {
-        if (!auth()->user()->hasRole('super_admin') && $dokumen->organization_id != auth()->user()->organization_id) {
-            abort(403, 'Anda tidak berhak menghapus dokumen ini!');
-        }
+        // ABORT(403) MANUAL DIHAPUS - Laravel Route Binding + Global Scope sudah melindungi ini dari jangkauan Ranting lain!
 
-        // Hapus file fisik dari storage
         if (Storage::exists($dokumen->file_path)) {
             Storage::delete($dokumen->file_path);
         }

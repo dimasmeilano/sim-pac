@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\AkreditasiController;
+use App\Http\Controllers\Admin\AlumniController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,18 +18,21 @@ use App\Http\Controllers\Public\InstrukturController;
 use App\Http\Controllers\Public\MakestaPublicController;
 use App\Http\Controllers\Public\PesertaEvaluasiController;
 use App\Http\Controllers\Public\ProfilController;
+use App\Http\Controllers\Public\DonasiPublicController;
 
 // Controllers - Admin Modules
 use App\Http\Controllers\Admin\ArtikelController;
 use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\CetakSuratController;
 use App\Http\Controllers\Admin\DokumenArsipController;
+use App\Http\Controllers\Admin\DonasiController;
 use App\Http\Controllers\Admin\GaleriController;
 use App\Http\Controllers\Admin\IdentitasWebController;
 use App\Http\Controllers\Admin\InventarisController;
 use App\Http\Controllers\Admin\KategoriArtikelController;
 use App\Http\Controllers\Admin\KegiatanController;
 use App\Http\Controllers\Admin\KeuanganController;
+use App\Http\Controllers\Admin\KlasterisasiController;
 use App\Http\Controllers\Admin\LpjController;
 use App\Http\Controllers\Admin\MakestaEventController;
 use App\Http\Controllers\Admin\MediaSosialController;
@@ -48,7 +53,6 @@ use App\Http\Controllers\Admin\TeksBerjalanController;
 use App\Http\Controllers\Admin\TtdDigitalController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\WidgetController;
-
 
 // =========================================================================
 // 1. INSTALLER ROUTES (TANPA AUTH)
@@ -116,6 +120,9 @@ Route::prefix('evaluasi-makesta/{event_id}')->group(function () {
 Route::get('drive/f/{token}', [GaleriController::class, 'publicFolder'])->name('galeri.public_folder');
 Route::post('drive/f/{token}/upload', [GaleriController::class, 'publicUpload'])->name('galeri.public_upload');
 
+// --- Donasi / Fundraising ---
+Route::get('/campaign/{id}', [DonasiPublicController::class, 'show'])->name('donasi.public.show');
+Route::post('/campaign/{id}/donate', [DonasiPublicController::class, 'store'])->name('donasi.public.store');
 
 // =========================================================================
 // 3. AUTHENTICATION (DEFAULT LARAVEL)
@@ -279,7 +286,7 @@ Route::middleware(['auth', AksesPengurus::class])->group(function () {
             Route::get('keluar', [SuratController::class, 'keluarIndex'])->name('keluar.index');
             Route::get('keluar/create', [SuratController::class, 'keluarCreate'])->name('keluar.create');
             Route::post('keluar', [SuratController::class, 'keluarStore'])->name('keluar.store');
-            Route::get('keluar/{suratKeluar}', [SuratController::class, 'keluarShow'])->name('keluar.show');
+            Route::get('keluar/{suratKeluar}', [SuratController::class, 'keluarShow'])->name('keluar.show')->middleware('role:sekretaris_pac|sekretaris_ranting|ketua_pac|ketua_ranting');
             Route::get('keluar/{suratKeluar}/edit', [SuratController::class, 'keluarEdit'])->name('keluar.edit');
             Route::put('keluar/{suratKeluar}', [SuratController::class, 'keluarUpdate'])->name('keluar.update');
             Route::delete('keluar/{suratKeluar}', [SuratController::class, 'keluarDestroy'])->name('keluar.destroy');
@@ -361,4 +368,49 @@ Route::middleware(['auth', AksesPengurus::class])->group(function () {
         Route::resource('teks-berjalan', TeksBerjalanController::class)->except(['create', 'show', 'edit']);
         Route::resource('widgets', WidgetController::class)->except(['create', 'show', 'edit']);
     });
+
+    // ==========================================
+    // MODUL MANAJEMEN ALUMNI
+    // ==========================================
+    Route::resource('alumni', AlumniController::class);
+
+    // ==========================================
+    // MODUL FUNDRAISING / DONASI
+    // ==========================================
+    Route::post('donasi/{donasi}/transaksi', [DonasiController::class, 'storeTransaksi'])->name('donasi.transaksi.store');
+    Route::resource('donasi', DonasiController::class);
+    // Rute khusus Bendahara untuk verifikasi bukti transfer
+    Route::patch('donasi/transaksi/{transaksi}/verify', [DonasiController::class, 'verifyTransaksi'])->name('donasi.transaksi.verify');
+
+    // ==========================================
+    // MODUL AKREDITASI & KLASTERISASI
+    // ==========================================
+    Route::get('akreditasi', [AkreditasiController::class, 'index'])->name('akreditasi.index');
+    Route::get('akreditasi/pengajuan', [AkreditasiController::class, 'create'])->name('akreditasi.create');
+    Route::post('akreditasi/pengajuan', [AkreditasiController::class, 'store'])->name('akreditasi.store');
+    // Route untuk menampilkan detail akreditasi
+    Route::get('/akreditasi/{id}/detail', [AkreditasiController::class, 'show'])->name('akreditasi.show');
+    Route::post('/akreditasi/{id}/rekomendasi-ai', [AkreditasiController::class, 'mintaRekomendasiAI'])->name('akreditasi.ai');
+
+    // Route untuk verifikasi Sekretaris & Finalisasi Ketua
+    Route::post('/akreditasi/{id}/review-sekretaris', [AkreditasiController::class, 'reviewSekretaris'])->name('akreditasi.review');
+    Route::post('/akreditasi/{id}/finalisasi-ketua', [AkreditasiController::class, 'finalisasiKetua'])->name('akreditasi.finalisasi');
+
+    // Rute khusus Asesor (PAC) untuk menyimpan nilai (Grade)
+    Route::put('akreditasi/nilai/{id}', [AkreditasiController::class, 'beriNilai'])->name('akreditasi.nilai');
+
+    // Rute Utama Klasterisasi
+    Route::get('/klasterisasi', [KlasterisasiController::class, 'index'])->name('klasterisasi.index');
+    Route::get('/klasterisasi/create', [KlasterisasiController::class, 'create'])->name('klasterisasi.create');
+    Route::post('/klasterisasi', [KlasterisasiController::class, 'store'])->name('klasterisasi.store');
+
+    // Rute Detail (Bisa tembus batas organisasi untuk PAC)
+    Route::get('/klasterisasi/{id}/detail', [KlasterisasiController::class, 'show'])->name('klasterisasi.show');
+
+    // Verifikasi Berlapis Klasterisasi
+    Route::post('/klasterisasi/{id}/review-sekretaris', [KlasterisasiController::class, 'reviewSekretaris'])->name('klasterisasi.storeSekretaris');
+    Route::post('/klasterisasi/{id}/finalisasi-ketua', [KlasterisasiController::class, 'finalisasiKetua'])->name('klasterisasi.storeKetua');
+
+    Route::get('/klasterisasi/{id}/cetak', [KlasterisasiController::class, 'cetakSertifikat'])->name('klasterisasi.cetak');
+    Route::post('/klasterisasi/{id}/rekomendasi-ai', [KlasterisasiController::class, 'mintaRekomendasiAI'])->name('klasterisasi.ai');
 });

@@ -1,96 +1,82 @@
-# Sistem Informasi Administrasi Surat (SIAS) - PAC IPNU IPPNU
+# SIM PAC - Sistem Informasi Manajemen Pimpinan Anak Cabang
 
-Sistem Informasi Administrasi Surat (SIAS) adalah aplikasi berbasis web yang dibangun menggunakan framework **Laravel** untuk mengotomatisasi pencatatan, pengarsipan, validasi berjenjang, dan pencetakan surat menyurat pada Pimpinan Anak Cabang (PAC) IPNU IPPNU.
-
-Aplikasi ini dilengkapi dengan fitur pembuatan surat menggunakan template dinamis, alur validasi silang (cross-check), tanda tangan digital otomatis berbasis Base64, serta penggabungan file lampiran langsung ke dalam file PDF akhir.
-
----
+SIM PAC adalah aplikasi berbasis web yang dirancang khusus untuk mempermudah tata kelola administrasi, keuangan, dan pengawasan Ranting pada tingkat Pimpinan Anak Cabang (PAC). Aplikasi ini mengusung hierarki akses yang jelas antara Super Admin, Pengurus PAC, dan Pengurus Ranting.
 
 ## 🚀 Fitur Utama
 
-### 1. Manajemen Surat Keluar (Template Dinamis)
-
-- Pembuatan surat otomatis menggunakan sistem placeholder penahan aman berbasis kurung siku (`[TTD_KETUA]`, `[TTD_SEKRETARIS]`, `[STEMPEL]`) untuk menghindari pemotongan otomatis oleh Rich Text Editor.
-- Penerjemahan otomatis variabel organisasi (contoh: `{jenis_organisasi_upper}`, `{nama_organisasi_lower}`) sesuai dengan hak akses organisasi user yang sedang login.
-
-### 2. Alur Validasi Berjenjang & Tanda Tangan Digital (Cross-Check Workflow)
-
-Sistem menerapkan alur birokrasi organisasi secara ketat dan aman:
-
-1.  **Draft:** Surat dibuat oleh pembuat surat.
-2.  **Menunggu Validasi Wakil:** Surat diajukan kepada Wakil Ketua lain yang ditunjuk untuk validasi silang (_cross-check_).
-3.  **Menunggu TTD Sekretaris:** Setelah disetujui Wakil, Sekretaris PAC memberikan Tanda Tangan Digital melalui menu profil mereka.
-4.  **Menunggu TTD Ketua:** Surat berlanjut ke Ketua PAC untuk penandatanganan akhir dan penyematan stempel organisasi secara otomatis.
-5.  **Selesai:** Surat resmi sah, tanda tangan & stempel otomatis muncul di halaman detail (`show`) dan siap diunduh menjadi PDF.
-
-### 3. Ekspor PDF & Merger Lampiran Otomatis
-
-- Menggunakan **DomPDF** untuk merender struktur HTML surat menjadi PDF secara presisi.
-- Menggunakan **FPDI** untuk menggabungkan dokumen utama dengan file lampiran (baik berupa gambar `JPG`/`PNG` maupun file `PDF` tambahan) ke halaman belakang dokumen secara otomatis tanpa merusak tata letak surat.
-- Gambar Tanda Tangan dan Stempel di-render menggunakan _Stream Base64 Encoding_ langsung dari direktori penyimpanan internal (`storage_path`) untuk memastikan asset gambar tidak pernah gagal dimuat (_broken link_).
-
-### 4. Manajemen Surat Masuk & Disposisi
-
-- Pencatatan surat masuk beserta tanggal diterima dan file fisik lampiran.
-- Fitur **Disposisi Surat** oleh Ketua PAC kepada pengurus terkait untuk ditindaklanjuti secara sistematis.
-
----
+- **Dasbor Komprehensif:** Pemantauan statistik organisasi secara _real-time_ (Keuangan, Surat, dan Keaktifan Ranting) menggunakan visualisasi Chart.js.
+- **Manajemen Hierarki & Role:** Hak akses berbasis _role_ menggunakan Spatie (Super Admin, Ketua PAC, Sekretaris PAC, Bendahara PAC, Ketua Ranting, dll).
+- **Sistem Administrasi Persuratan:** Tracking dan validasi surat menyurat secara digital.
+- **Manajemen Kas & Keuangan:** Pemisahan pencatatan arus kas (Kas IPNU, Kas IPPNU, dan Kas Bersama).
+- **Klasterisasi & Akreditasi Ranting:** Penilaian otomatis dan pemetaan kualitas ranting/komisariat (Utama, Sedang, Binaan) beserta predikat akreditasinya.
+- **Pusat Operasional Organisasi:** Dilengkapi dengan pendataan anggota, pemantauan program kerja, papan Kanban, dan ruang diskusi internal.
+- **Peringatan Masa Aktif SK:** Indikator otomatis untuk ranting yang berstatus Kritis atau Demisioner.
 
 ## 🛠️ Tech Stack
 
-- **Framework Utama:** Laravel (PHP)
-- **Database:** MySQL / MariaDB
-- **PDF Generator:** `barryvdh/laravel-dompdf` (DomPDF)
-- **PDF Merger / Importer:** `setasign/fpdi`
-- **Template Engine:** Blade Templating
-- **Autentikasi & Hak Akses:** Spatie Laravel-permission (Roles: `super_admin`, `ketua_pac`, `sekretaris_pac`, `wakil`)
+- **Framework:** [Laravel](https://laravel.com/)
+- **Frontend Template:** [AdminLTE 3](https://adminlte.io/) (Bootstrap 4)
+- **Database:** MySQL
+- **Visualisasi Data:** [Chart.js](https://www.chartjs.org/)
+- **Role Management:** Spatie Laravel Permission
 
----
+## ⚙️ Cara Instalasi (Local Development)
 
-## ⚙️ Cara Instalasi & Konfigurasi
+Ikuti langkah-langkah di bawah ini untuk menjalankan project di _localhost_:
 
-### 1. Kloning Repositori
+1. **Clone repository ini:**
 
-```bash
-git clone [https://github.com/username/sias-ipnu-ippnu.git](https://github.com/username/sias-ipnu-ippnu.git)
-cd sias-ipnu-ippnu
-2. Instalasi Dependensi PHP
-Bash
-composer install
-3. Konfigurasi Environment File
-Salin file .env.example menjadi .env dan sesuaikan pengaturan database Anda:
+````bash
+   git clone [https://github.com/username-anda/sim-pac.git](https://github.com/username-anda/sim-pac.git)
+   cd sim-pac
+Install dependensi Composer:
 
 Bash
-cp .env.example .env
-Lalu, sesuaikan bagian konfigurasi database di file .env:
+   composer install
+Install dependensi NPM (opsional jika ada custom asset):
+
+Bash
+   npm install
+   npm run dev
+Konfigurasi Environment:
+
+Duplikat file .env.example menjadi .env.
+
+Buka file .env dan atur konfigurasi database Anda:
 
 Cuplikan kode
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=nama_database_anda
-DB_USERNAME=root
-DB_PASSWORD=
-4. Generate Application Key & Jalankan Migrasi
+     DB_CONNECTION=mysql
+     DB_HOST=127.0.0.1
+     DB_PORT=3306
+     DB_DATABASE=nama_database_anda
+     DB_USERNAME=root
+     DB_PASSWORD=
+     ```
+
+5. **Generate Application Key:**
+```bash
+   php artisan key:generate
+Migrasi Database & Seeder:
+(Pastikan Anda membuat database kosong terlebih dahulu di MySQL/phpMyAdmin)
+
 Bash
-php artisan key:generate
-php artisan migrate --seed
-(Catatan: --seed digunakan jika Anda memiliki data dummy/awal untuk Role, Permission, dan Akun)
-
-5. Membuat Symbolic Link Storage
-Sistem menyimpan file aset tanda tangan, stempel, dan lampiran di dalam direktori storage/app/public. Jalankan perintah ini agar aset dapat diakses dengan baik:
+   php artisan migrate --seed
+Jalankan Aplikasi:
 
 Bash
-php artisan storage:link
-6. Jalankan Server Lokal
-Bash
-php artisan serve
-Buka http://127.0.0.1:8000 pada browser Anda.
+   php artisan serve
+Aplikasi dapat diakses melalui http://localhost:8000.
 
-📝 Catatan Penting untuk Pengembang
-Format Placeholder TTD: Jangan pernah mengubah simbol tanda tangan dari kurung siku [TTD_SEKRETARIS] menjadi kurung kurawal {ttd_sekretaris} di master template HTML, karena kurung kurawal kosong rentan dihapus secara otomatis oleh sistem sanitasi Rich Text Editor (CKEditor/TinyMCE).
+🚧 Roadmap / Pengembangan Mendatang
+[ ] Integrasi Google Calendar untuk sinkronisasi jadwal kegiatan otomatis.
 
-Izin Direktori Temp: Sistem memerlukan folder temporary untuk memproses penggabungan dokumen PDF. Pastikan aplikasi memiliki izin menulis pada folder storage/app/temp/. (Sistem sudah dilengkapi auto-create folder dengan hak izin 0775).
+[ ] Integrasi Google Meet API untuk generate link Meeting Room.
 
-Made with ❤️ oleh PAC IPNU IPPNU.
-```
+[ ] Export otomatis Laporan Pertanggungjawaban (LPJ) PDF/Excel.
+
+🤝 Kontribusi
+Aplikasi ini dikembangkan untuk kemajuan tata kelola organisasi. Kritik, saran, maupun Pull Request sangat diterima!
+
+📄 Lisensi
+Proyek ini berada di bawah lisensi MIT License.
+````

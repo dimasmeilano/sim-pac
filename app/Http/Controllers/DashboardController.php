@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Akreditasi;
+use App\Models\Klasterisasi;
 use App\Models\Pengunjung;
 use App\Models\ProgramKerja;
 use App\Models\SuratKeluar;
@@ -88,6 +90,20 @@ class DashboardController extends Controller
             'hits_hari_ini' => Pengunjung::where('tanggal', $hari_ini)->sum('hits') ?? 0,
         ];
 
+        $klasterCounts = Klasterisasi::withoutGlobalScopes() // <-- Tambahkan penangkal Satpam ini
+            ->selectRaw('kluster, count(*) as total')
+            ->whereIn('kluster', [1, 2, 3])
+            ->groupBy('kluster')
+            ->pluck('total', 'kluster')
+            ->toArray();
+
+        $akreditasiCounts = Akreditasi::withoutGlobalScopes()
+            ->selectRaw('grade_akhir, count(*) as total')
+            ->whereIn('grade_akhir', ['A', 'B', 'C', 'D'])
+            ->groupBy('grade_akhir')
+            ->pluck('total', 'grade_akhir')
+            ->toArray();
+
         // 3. Kirim semua data ke View
         return view('dashboard', [
             'saldo_ipnu' => $saldoIpnu,
@@ -102,6 +118,13 @@ class DashboardController extends Controller
             'surat_selesai' => $suratSelesai,
             'daftar_surat_menunggu' => $daftarSuratMenunggu,
             'statistik' => $statistik,
+            'jumlah_klaster_1' => $klasterCounts[1] ?? 0,
+            'jumlah_klaster_2' => $klasterCounts[2] ?? 0,
+            'jumlah_klaster_3' => $klasterCounts[3] ?? 0,
+            'akreditasi_A' => $akreditasiCounts['A'] ?? 0,
+            'akreditasi_B' => $akreditasiCounts['B'] ?? 0,
+            'akreditasi_C' => $akreditasiCounts['C'] ?? 0,
+            'akreditasi_D' => $akreditasiCounts['D'] ?? 0,
         ]);
     }
 }

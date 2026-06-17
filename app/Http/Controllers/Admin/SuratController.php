@@ -149,7 +149,7 @@ class SuratController extends Controller
         if ($kategoriTujuan === 'internal') {
             $tujuanOrgId = $request->input('tujuan_organization_id');
             $orgTujuan = Organization::find($tujuanOrgId);
-            $tujuanTeks = $orgTujuan ? $orgTujuan->nama : '-';
+            $tujuanTeks = $orgTujuan ? $orgTujuan->name : '-';
         }
 
         $suratService = new \App\Services\SuratService();
@@ -178,13 +178,15 @@ class SuratController extends Controller
         $surat->isi_surat       = $kontenHtmlFinal;
         $surat->status          = 'draft';
         $surat->status_validasi = 'draft';
-        $surat->data_surat = [
+        $surat->data_surat = json_encode([
             'isi_teks_bebas'          => $request->isi_surat_bebas,
             'penerbit_surat'          => $request->penerbit_surat,
             'nama_kegiatan_panitia'   => $request->nama_kegiatan_panitia ?? null,
             'nama_ketua_panitia'      => $request->nama_ketua_panitia ?? null,
             'nama_sekretaris_panitia' => $request->nama_sekretaris_panitia ?? null,
-        ];
+            'tujuan_surat'            => $tujuanTeks,
+            'lampiran'                => $request->file_lampiran ? '1 (Satu) Berkas' : '-',
+        ]);
 
         $surat->save();
 
@@ -318,13 +320,15 @@ class SuratController extends Controller
             'penerbit_surat' => $request->penerbit_surat,
             'file_lampiran'  => $lampiranPath,
             'isi_surat'      => $kontenHtmlFinal,
-            'data_surat'     => [
+            'data_surat'     => json_encode([
                 'isi_teks_bebas'          => $request->isi_surat_bebas,
                 'penerbit_surat'          => $request->penerbit_surat,
                 'nama_kegiatan_panitia'   => $request->nama_kegiatan_panitia ?? null,
                 'nama_ketua_panitia'      => $request->nama_ketua_panitia ?? null,
                 'nama_sekretaris_panitia' => $request->nama_sekretaris_panitia ?? null,
-            ]
+                'tujuan_surat'            => $tujuanTeks,
+                'lampiran'                => $request->file_lampiran ? '1 (Satu) Berkas' : '-',
+            ])
         ]);
 
         return redirect()->route('surat.keluar.show', $suratKeluar->id)->with('success', 'Draft Surat Umum berhasil diperbarui!');
@@ -426,6 +430,30 @@ class SuratController extends Controller
         if ($surat->created_by != $user->id) return back()->with('error', 'Hanya pembuat surat yang dapat mengajukan validasi.');
         if ($surat->status_validasi != 'draft') return back()->with('error', 'Surat ini sudah diajukan sebelumnya.');
 
+        // ---------------------------------------------------------
+        // 🚀 BYPASS LOGIC: Jika yang buat adalah Sekretaris, langsung auto-TTD
+        // ---------------------------------------------------------
+        if ($user->hasAnyRole(['sekretaris_pac', 'sekretaris_ranting'])) {
+
+            // Cek apakah TTD sudah diatur
+            if (empty($user->organization->ttd_sekretaris)) {
+                return back()->with('error', 'Tanda tangan digital Sekretaris belum diatur!');
+            }
+
+            $surat->update([
+                'diajukan_oleh'                  => $user->id,
+                'status_validasi'                => 'menunggu_ttd_ketua',
+                'ditandatangani_sekretaris_oleh' => $user->id,
+                'tanggal_ttd_sekretaris'         => now(),
+            ]);
+
+            return redirect()->route('surat.keluar.show', $surat->id)
+                ->with('success', 'Surat otomatis di-TTD oleh Anda (Sekretaris). Sekarang menunggu TTD dari Ketua.');
+        }
+
+        // ---------------------------------------------------------
+        // LOGIKA ASLI (Jika yang buat anggota biasa / bukan sekretaris)
+        // ---------------------------------------------------------
         if ($surat->penerbit_surat === 'bersama') {
             $surat->status_validasi = 'menunggu_ttd_sekretaris';
             $surat->diajukan_oleh = $user->id;
@@ -446,58 +474,163 @@ class SuratController extends Controller
         }
     }
 
-    public function validasiWakil(Request $request, SuratKeluar $surat)
+    // =========================================================================
+    // TAHAP 1: VALIDASI WAKIL SEKRETARIS (Jika Ada)
+    // =========================================================================
+    public function validasiWakil(SuratKeluar $surat)
     {
         $user = auth()->user();
-        if ($surat->created_by != $user->id) return back()->with('error', 'Hanya pembuat surat yang dapat mengajukan validasi');
-        if ($surat->status_validasi != 'draft') return back()->with('error', 'Surat sudah diajukan sebelumnya');
+        if ($surat->status_validasi !== 'menunggu_validasi_wakil') abort(403);
+        if ($surat->divalidasi_oleh !== $user->id) return back()->with('error', 'Hanya Wakil Sekretaris yang ditunjuk yang bisa memvalidasi surat ini.');
 
-        if ($surat->penerbit_surat === 'bersama') {
-            $surat->update(['status_validasi' => 'menunggu_ttd_sekretaris', 'diajukan_oleh'   => $user->id]);
-            return redirect()->route('surat.keluar.show', $surat)
-                ->with('success', 'Surat Bersama diajukan. Menunggu validasi Sekretaris IPNU & IPPNU.');
-        } else {
-            $request->validate(['divalidasi_oleh' => 'required|exists:users,id']);
-            $surat->update(['status_validasi' => 'menunggu_validasi_wakil', 'diajukan_oleh' => $user->id, 'divalidasi_oleh' => $request->divalidasi_oleh]);
+        $surat->update([
+            'tanggal_validasi' => now(),
+            'status_validasi'  => 'menunggu_ttd_sekretaris'
+        ]);
 
-            $validator = User::find($request->divalidasi_oleh);
-            return redirect()->route('surat.keluar.show', $surat)
-                ->with('success', 'Surat berhasil diajukan. Menunggu persetujuan dari ' . ($validator ? $validator->name : 'Wakil yang dipilih'));
-        }
+        return back()->with('success', 'Validasi Wasek selesai. Surat diteruskan ke Sekretaris.');
     }
 
-    public function ttdSekretaris(Request $request, SuratKeluar $surat)
+    // =========================================================================
+    // TAHAP 2: PERSETUJUAN & TTD SEKRETARIS
+    // =========================================================================
+    public function ttdSekretaris(SuratKeluar $surat)
     {
         $user = auth()->user();
         $org = $user->organization;
+        $jenisOrg = strtolower($org->jenis_organisasi ?? 'ipnu');
 
-        if (!$user->hasAnyRole(['sekretaris_pac', 'sekretaris_ranting'])) abort(403, 'Anda tidak memiliki akses.');
-        if (empty($org->ttd_sekretaris)) return back()->with('error', 'Tanda tangan digital Sekretaris belum diatur!');
+        if (!$user->hasAnyRole(['sekretaris_ranting', 'sekretaris_pac'])) abort(403);
+        if ($surat->status_validasi !== 'menunggu_ttd_sekretaris') abort(403);
 
-        $surat->update(['ditandatangani_sekretaris_oleh' => $user->id, 'tanggal_ttd_sekretaris' => now(), 'status_validasi' => 'menunggu_ttd_ketua']);
+        // Pengecekan Ketersediaan TTD
+        if (empty($org->ttd_sekretaris) || !\Illuminate\Support\Facades\Storage::disk('public')->exists($org->ttd_sekretaris)) {
+            return back()->with('error', 'Gagal! Tanda tangan Sekretaris belum diatur di Profil.');
+        }
 
-        return back()->with('success', 'Surat berhasil ditandatangani oleh Sekretaris, sekarang menunggu TTD Ketua.');
+        if ($surat->penerbit_surat !== 'bersama') {
+            // Surat Mandiri / Panitia
+            $surat->update([
+                'ditandatangani_sekretaris_oleh' => $user->id,
+                'tanggal_ttd_sekretaris'         => now(),
+                'status_validasi'                => 'menunggu_ttd_ketua'
+            ]);
+            return back()->with('success', 'Tanda tangan Sekretaris berhasil disematkan. Surat diteruskan ke Ketua.');
+        } else {
+            // Surat Bersama (IPNU & IPPNU)
+            if ($jenisOrg === 'ipnu') $surat->acc_sekretaris_ipnu_at = now();
+            if ($jenisOrg === 'ippnu') $surat->acc_sekretaris_ippnu_at = now();
+
+            if ($surat->acc_sekretaris_ipnu_at !== null && $surat->acc_sekretaris_ippnu_at !== null) {
+                $surat->status_validasi = 'menunggu_ttd_ketua';
+                $pesan = "ACC Sekretaris IPNU & IPPNU lengkap. Diteruskan ke Ketua.";
+            } else {
+                $rekan = ($jenisOrg == 'ipnu') ? 'IPPNU' : 'IPNU';
+                $pesan = "Tanda tangan Anda berhasil. Menunggu Sekretaris $rekan.";
+            }
+            $surat->save();
+            return back()->with('success', $pesan);
+        }
     }
 
+    // =========================================================================
+    // TAHAP 3 (FINAL): PERSETUJUAN KETUA, TTE, DAN PENGIRIMAN OTOMATIS
+    // =========================================================================
     public function ttdKetua(SuratKeluar $surat)
     {
         $user = auth()->user();
         $org = $user->organization;
+        $jenisOrg = strtolower($org->jenis_organisasi ?? 'ipnu');
 
-        if (!$user->hasAnyRole(['ketua_pac', 'ketua_ranting'])) abort(403, 'Anda tidak memiliki akses.');
-        if (!$org || $org->ketua_id != $user->id) return back()->with('error', 'Hanya Ketua yang dapat menandatangani');
-        if ($surat->status_validasi != 'menunggu_ttd_ketua') return back()->with('error', 'Surat tidak dalam status menunggu tanda tangan ketua');
-        if (empty($org->ttd_ketua)) return back()->with('error', 'Tanda tangan digital Anda belum diatur! Silakan isi di menu Profil terlebih dahulu.');
+        if (!$user->hasAnyRole(['ketua_ranting', 'ketua_pac'])) abort(403);
+        if ($surat->status_validasi !== 'menunggu_ttd_ketua') abort(403);
 
-        $surat->update([
-            'status_validasi' => 'selesai',
-            'status' => 'selesai',
-            'ditandatangani_ketua_oleh' => $user->id,
-            'ttd_ketua_file' => $org->ttd_ketua,
-            'tanggal_ttd_ketua' => now(),
-        ]);
+        // Pengecekan Ketersediaan TTD dan Stempel
+        if (empty($org->ttd_ketua) || !\Illuminate\Support\Facades\Storage::disk('public')->exists($org->ttd_ketua)) {
+            return back()->with('error', 'Gagal! Tanda Tangan Anda belum diatur atau file hilang.');
+        }
+        if (empty($org->stempel) || !\Illuminate\Support\Facades\Storage::disk('public')->exists($org->stempel)) {
+            return back()->with('error', 'Gagal! Stempel Organisasi belum diunggah.');
+        }
 
-        return redirect()->route('surat.keluar.show', $surat)->with('success', 'Surat ditandatangani Ketua. Proses Selesai!');
+        $isSelesai = false;
+        $pesan = '';
+
+        // Penentuan Status Selesai (Mandiri vs Bersama)
+        if ($surat->penerbit_surat !== 'bersama') {
+            $surat->ditandatangani_ketua_oleh = $user->id;
+
+            //$surat->ttd_ketua_file = $org->ttd_ketua; // <--- HAPUS ATAU JADIKAN KOMENTAR BARIS INI
+
+            $surat->tanggal_ttd_ketua = now();
+            $surat->status_validasi = 'selesai';
+            $surat->status = 'selesai';
+            $isSelesai = true;
+            $pesan = "Sah! Dokumen disetujui Ketua dan TTE berhasil dicetak.";
+        } else {
+            if ($jenisOrg === 'ipnu') $surat->acc_ipnu_at = now();
+            if ($jenisOrg === 'ippnu') $surat->acc_ippnu_at = now();
+
+            if ($surat->acc_ipnu_at !== null && $surat->acc_ippnu_at !== null) {
+                $surat->status_validasi = 'selesai';
+                $surat->status = 'selesai';
+                $isSelesai = true;
+                $pesan = "Sah! Surat Bersama disetujui penuh dan TTE dicetak.";
+            } else {
+                $rekan = ($jenisOrg == 'ipnu') ? 'IPPNU' : 'IPNU';
+                $pesan = "Tanda tangan Anda berhasil. Menunggu persetujuan Ketua $rekan.";
+            }
+        }
+
+        // Eksekusi Puncak (Hanya berjalan jika status benar-benar 'selesai')
+        // Eksekusi Puncak (Hanya berjalan jika status benar-benar 'selesai')
+        if ($isSelesai) {
+            // 1. RAKIT ULANG HTML UNTUK MENGELUARKAN GAMBAR TTD & QR CODE
+            $template = \App\Models\SuratTemplate::find($surat->template_id);
+            if ($template) {
+                // Ekstrak data JSON dengan aman
+                $dataSuratRaw = $surat->data_surat;
+                $dataSuratArray = is_string($dataSuratRaw) ? (json_decode($dataSuratRaw, true) ?? []) : (is_array($dataSuratRaw) ? $dataSuratRaw : []);
+
+                $requestData = new \Illuminate\Http\Request();
+                $requestData->merge($dataSuratArray);
+                $requestData->merge([
+                    'isi_surat_bebas' => $dataSuratArray['isi_teks_bebas'] ?? '',
+                    'tujuan_surat'    => $dataSuratArray['tujuan_surat'] ?? $surat->tujuan,
+                    'lampiran'        => $dataSuratArray['lampiran'] ?? '-',
+                    'perihal'         => $surat->perihal,
+                    'nomor_surat'     => $surat->nomor_surat,
+                    'tanggal_surat'   => $surat->tanggal_surat,
+                    'penerbit_surat'  => $surat->penerbit_surat,
+                ]);
+
+                $suratService = new \App\Services\SuratService();
+                $finalHtml = $suratService->renderTemplateUmum($template->konten, $requestData, $surat->organization, 'selesai');
+                $surat->isi_surat = $finalHtml;
+            }
+
+            // 2. SAKLAR PENGIRIMAN OTOMATIS
+            if (!empty($surat->tujuan_organization_id)) {
+                $cekSudahMasuk = SuratMasuk::where('nomor_surat', $surat->nomor_surat)->where('organization_id', $surat->tujuan_organization_id)->exists();
+                if (!$cekSudahMasuk) {
+                    SuratMasuk::create([
+                        'organization_id'  => $surat->tujuan_organization_id,
+                        'nomor_surat'      => $surat->nomor_surat,
+                        'pengirim'         => $surat->organization->name ?? 'Sistem SIM PAC',
+                        'perihal'          => $surat->perihal,
+                        'isi_surat'        => $surat->isi_surat,
+                        'lampiran'         => $surat->file_lampiran,
+                        'tanggal_surat'    => $surat->tanggal_surat,
+                        'tanggal_diterima' => now(),
+                        'status'           => 'baru',
+                        'diterima_oleh'    => $user->id,
+                    ]);
+                }
+            }
+        }
+
+        $surat->save();
+        return back()->with('success', $pesan);
     }
 
     public function keluarDownload(SuratKeluar $suratKeluar)
@@ -724,106 +857,5 @@ class SuratController extends Controller
     public function formLacak()
     {
         return view('public.lacak-surat');
-    }
-
-    public function approve($id)
-    {
-        $surat = SuratKeluar::findOrFail($id);
-        $user = auth()->user();
-        $jenisOrg = strtolower($user->organization->jenis_organisasi ?? 'ipnu');
-        $pesan = '';
-
-        $isWasek = $user->hasAnyRole(['wakil_sekretaris', 'wakil_sekretaris_ranting', 'wakil_sekretaris_pac']);
-        $isSekretaris = $user->hasAnyRole(['sekretaris_ranting', 'sekretaris_pac']);
-        $isKetua = $user->hasAnyRole(['ketua_ranting', 'ketua_pac']);
-
-        if ($surat->penerbit_surat !== 'bersama') {
-            if ($surat->status_validasi === 'menunggu_validasi_wakil') {
-                if ($surat->divalidasi_oleh !== $user->id) return back()->with('error', 'Hanya Wakil Sekretaris yang ditunjuk yang bisa memvalidasi surat ini.');
-                $surat->tanggal_validasi = now();
-                $surat->status_validasi = 'menunggu_ttd_sekretaris';
-                $pesan = "Validasi Wasek selesai. Surat diteruskan ke Sekretaris.";
-            } elseif ($surat->status_validasi === 'menunggu_ttd_sekretaris') {
-                if (!$isSekretaris) return back()->with('error', 'Hanya Sekretaris yang bisa melakukan aksi ini.');
-                $surat->ditandatangani_sekretaris_oleh = $user->id;
-                $surat->tanggal_ttd_sekretaris = now();
-                $surat->status_validasi = 'menunggu_ttd_ketua';
-                $pesan = "Tanda tangan Sekretaris berhasil. Surat diteruskan ke Ketua.";
-            } elseif ($surat->status_validasi === 'menunggu_ttd_ketua') {
-                if (!$isKetua) return back()->with('error', 'Hanya Ketua yang bisa melakukan aksi ini.');
-                $surat->ditandatangani_ketua_oleh = $user->id;
-                $surat->tanggal_ttd_ketua = now();
-                $surat->status_validasi = 'selesai';
-                $surat->status = 'selesai';
-                $pesan = "Sah! Dokumen disetujui Ketua dan QR Code TTE berhasil dicetak.";
-            }
-        } else {
-            if ($surat->status_validasi === 'menunggu_ttd_sekretaris') {
-                if (!$isSekretaris) return back()->with('error', 'Hanya Sekretaris yang bisa melakukan aksi ini.');
-                if ($jenisOrg === 'ipnu') $surat->acc_sekretaris_ipnu_at = now();
-                if ($jenisOrg === 'ippnu') $surat->acc_sekretaris_ippnu_at = now();
-
-                if ($surat->acc_sekretaris_ipnu_at !== null && $surat->acc_sekretaris_ippnu_at !== null) {
-                    $surat->status_validasi = 'menunggu_ttd_ketua';
-                    $pesan = "ACC Sekretaris IPNU & IPPNU lengkap. Diteruskan ke Ketua.";
-                } else {
-                    $rekan = ($jenisOrg == 'ipnu') ? 'IPPNU' : 'IPNU';
-                    $pesan = "Tanda tangan Anda berhasil. Menunggu Sekretaris $rekan.";
-                }
-            } elseif ($surat->status_validasi === 'menunggu_ttd_ketua') {
-                if (!$isKetua) return back()->with('error', 'Hanya Ketua yang bisa melakukan aksi ini.');
-                if ($jenisOrg === 'ipnu') $surat->acc_ipnu_at = now();
-                if ($jenisOrg === 'ippnu') $surat->acc_ippnu_at = now();
-
-                if ($surat->acc_ipnu_at !== null && $surat->acc_ippnu_at !== null) {
-                    $surat->status_validasi = 'selesai';
-                    $surat->status = 'selesai';
-                    $pesan = "Sah! Surat Bersama disetujui penuh dan QR Code TTE berhasil dicetak.";
-                } else {
-                    $rekan = ($jenisOrg == 'ipnu') ? 'IPPNU' : 'IPNU';
-                    $pesan = "Tanda tangan Anda berhasil. Menunggu persetujuan Ketua $rekan.";
-                }
-            }
-        }
-
-        // =================================================================
-        // EKSEKUSI PEMBUATAN QR CODE & PENGIRIMAN OTOMATIS
-        // =================================================================
-        if ($surat->status_validasi === 'selesai') {
-            $urlVerifikasi = route('verifikasi.surat', ['nomor' => base64_encode($surat->nomor_surat)]);
-            $qrCodeImage = base64_encode(\SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(80)->errorCorrection('H')->generate($urlVerifikasi));
-            $qrHtml = '<img src="data:image/svg+xml;base64,' . $qrCodeImage . '" alt="QR TTE" width="80" height="80">';
-
-            $dataSurat = $surat->data_surat;
-            $htmlLengkap = $dataSurat['html_lengkap'] ?? '';
-            $htmlLengkap = str_replace('[QR_TTE]', $qrHtml, $htmlLengkap);
-            $dataSurat['htmlLengkap'] = $htmlLengkap;
-            $surat->data_surat = $dataSurat;
-
-            // [BARU] SAKLAR PENGIRIMAN OTOMATIS KE SURAT MASUK PENERIMA
-            if (!empty($surat->tujuan_organization_id)) {
-                $cekSudahMasuk = SuratMasuk::where('nomor_surat', $surat->nomor_surat)
-                    ->where('organization_id', $surat->tujuan_organization_id)
-                    ->exists();
-
-                if (!$cekSudahMasuk) {
-                    SuratMasuk::create([
-                        'organization_id'  => $surat->tujuan_organization_id,
-                        'nomor_surat'      => $surat->nomor_surat,
-                        'pengirim'         => $surat->organization->nama ?? 'Sistem SIM PAC',
-                        'perihal'          => $surat->perihal,
-                        'isi_surat'        => 'Surat diterima secara otomatis melalui ekosistem SIM PAC.',
-                        'lampiran'         => $surat->file_lampiran,
-                        'tanggal_surat'    => $surat->tanggal_surat,
-                        'tanggal_diterima' => now(),
-                        'status'           => 'baru',
-                        'diterima_oleh'    => $user->id,
-                    ]);
-                }
-            }
-        }
-
-        $surat->save();
-        return redirect()->back()->with('success', $pesan ?: 'Status tidak berubah. Pastikan Anda berada di tahap yang tepat.');
     }
 }
