@@ -14,6 +14,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
+use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
     'name',
@@ -34,7 +35,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles, BelongsToOrganization, LogsActivity;
+    use HasFactory, Notifiable, HasRoles, BelongsToOrganization, LogsActivity, HasApiTokens;
 
     /**
      * Get the attributes that should be cast.
@@ -153,6 +154,11 @@ class User extends Authenticatable
         }
 
         return $partner;
+    }
+
+    public function chatRooms()
+    {
+        return $this->belongsToMany(ChatRoom::class, 'chat_room_users');
     }
 
     public function getActivitylogOptions(): LogOptions
